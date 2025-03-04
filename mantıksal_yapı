@@ -1,0 +1,308 @@
+1. Veritabanı ve Tablo Oluşturma İşlemleri
+1.1. Veritabanı Oluşturma
+Komut:
+
+CREATE DATABASE degerlidb;
+Açıklama:
+
+Bu komut, tüm verilerinizi saklayabileceğiniz yeni bir veritabanı (örneğin, bir oyun uygulamasında oyuncu verilerini tutacağınız veritabanı) oluşturur.
+Oluşturulan veritabanı, sistemde benzersiz bir tanımlayıcı (OID) ile etiketlenir.
+
+1.2. Veritabanı Bilgilerini Sorgulama
+Komut:
+
+SELECT datname, oid FROM pg_database WHERE datname = 'degerlidb';
+
+Örnek Çıktı:
+
+pgsql
+Kopyala
+Düzenle
+  datname  |   oid  
+-----------+---------
+ degerlidb | 113748
+(1 row)
+
+Açıklama:
+Bu sorgu, pg_database sistem kataloğu üzerinden veritabanının adı ve OID'si gibi bilgileri getirir.
+OID, veritabanının PostgreSQL tarafından içsel olarak tanımlanması için kullanılır.
+
+1.3. Veritabanına Bağlanma
+
+Komut:
+\c degerlidb
+
+Açıklama:
+Bu komut, oluşturduğunuz veritabanına bağlanmanızı sağlar. Artık veritabanı üzerinde sorgular, tablo oluşturma gibi işlemleri gerçekleştirebilirsiniz.
+
+1.4. Tablo Oluşturma
+
+Komut:
+
+CREATE TABLE degerlitablo(i int);
+
+Açıklama:
+Veritabanı içinde degerlitablo adında bir tablo oluşturulur.
+Bu örnekte, tablo yalnızca tek bir sütun içerir (tamsayı tipinde).
+Gerçek senaryoda, bu tablo örneğin bir oyunda oyuncu puanlarını veya e-ticaret uygulamasında ürün bilgilerini saklamak için kullanılabilir.
+
+1.5. Tablonun Fiziksel Konumunu Sorgulama
+
+Komut:
+
+SELECT pg_relation_filepath('degerlitablo');
+
+Örnek Çıktı:
+
+   pg_relation_filepath   
+--------------------------
+ base/113748/113749
+(1 row)
+
+Açıklama:
+Bu sorgu, tablonun dosya sistemindeki fiziksel konumunu gösterir.
+Örneğin, 113748 veritabanının OID'si, 113749 ise tablonun OID’si/relfilenode numarasıdır.
+
+2. PostgreSQL Sistem Katalogları ve Fiziksel Dosya Bilgileri
+
+2.1. pg_class Üzerinden Tablo Bilgisi
+
+Komut:
+SELECT relname, oid, relfilenode FROM pg_class WHERE relname = 'degerlitablo';
+
+Örnek Çıktı:
+
+    relname    |  oid   | relfilenode
+---------------+--------+-------------
+ degerlitablo  | 113749 |      113749
+(1 row)
+
+Açıklama:
+relname: Tablonun adını gösterir.
+oid: PostgreSQL’in tabloya atadığı benzersiz tanımlayıcıdır.
+relfilenode: Tablonun fiziksel dosya sistemindeki adıdır. Genellikle OID ile aynıdır, ancak bazı işlemlerde (örneğin TRUNCATE, REINDEX, CLUSTER) değişiklik gösterebilir.
+
+3. Dosya Sisteminde Tabloların Depolanması
+
+3.1. Fiziksel Dosya Yapısı
+PostgreSQL, verileri sabit boyutlu sayfalara (default: 8 KB) böler.
+
+Her sayfa, 0’dan başlayarak numaralandırılır (block numarası).
+Bir tablo büyüdükçe, yeni boş sayfalar dosyanın sonuna eklenir.
+
+3.2. Dosya Örneği
+Diyelim ki, veritabanı dosya dizininde aşağıdaki gibi dosyalar görüyorsunuz:
+
+cd $PGDATA
+ls -la base/16384/18751*
+
+Çıktı:
+
+-rw------- 1 postgres postgres  8192 Apr 21 10:21 base/16384/18751
+-rw------- 1 postgres postgres 24576 Apr 21 10:18 base/16384/18751_fsm
+-rw------- 1 postgres postgres  8192 Apr 21 10:18 base/16384/18751_vm
+
+Açıklama:
+18751: Ana tablo dosyası; içinde gerçek veriler bulunur.
+18751_fsm: Free Space Map dosyası; tablonun boş alan bilgilerini takip eder.
+Yeni veriler eklenirken boş alan varsa, o alan kullanılır.
+18751_vm: Visibility Map dosyası; her sayfada ölü (silinmiş) kayıt olup olmadığını gösterir.
+VACUUM işlemi sırasında ölü kayıt içermeyen sayfalar atlanarak işlem hızlandırılır.
+
+4. Tablo Yönetimi ve Fiziksel Yapı Üzerinde İşlemler
+
+4.1. TRUNCATE, REINDEX, CLUSTER Komutları
+PostgreSQL’de bazı komutlar, tablo dosyasının yapısını etkileyerek filenode’u değiştirebilir.
+
+TRUNCATE
+
+Komut:
+TRUNCATE TABLE degerlitablo;
+
+Açıklama:
+Tüm satırları hızlıca siler.
+Fiziksel dosya (filenode) yenilenir; yani yeni bir dosya oluşturulur.
+REINDEX
+
+Komut:
+REINDEX TABLE degerlitablo;
+
+Açıklama:
+Tablonun indekslerini yeniden oluşturur.
+İndekslerin bozulduğu durumlarda kullanılır; filenode’da değişiklik olabilir.
+
+CLUSTER
+
+Komut:
+CLUSTER degerlitablo USING some_index;
+
+Açıklama:
+Tablodaki verileri, belirtilen indekse göre fiziksel olarak sıralar.
+Bu, sorgu performansını artırabilir; bu işlem sırasında dosya yeniden düzenlendiği için filenode değişebilir.
+
+4.2. Dosya Boyutu ve Bölme (File Splitting)
+
+PostgreSQL’de bir dosya 1 GB’den büyük olamaz.
+Eğer bir tablo büyürse, dosya arka planda 1 GB’lık parçalara ayrılır.
+Örneğin:
+relfilenode dosyası
+relfilenode.1, relfilenode.2 şeklinde devam eder.
+
+4.3. Ek İlişkiler: _fsm ve _vm
+
+Her heap tablo dosyasının yanında, sistem verimliliği için _fsm (Free Space Map) ve _vm (Visibility Map) adlı dosyalar bulunur.
+_fsm: Boş alanları takip eder.
+_vm: Her sayfada ölü kayıt bulunup bulunmadığını gösterir.
+
+5. Tablespace (Tablo Alanları)
+
+5.1. Tablespace Nedir?
+Tablespace, PostgreSQL veritabanı dosyalarının ana veri dizininin dışında depolanmasını sağlar.
+Bu özellik, özellikle büyük veritabanlarında disk alanını dağıtmak ve performansı artırmak için kullanılır.
+
+5.2. Tablespace Yapısı ve Symlink Mantığı
+pg_tablespc dizini altında, tablespace’lerin gerçek konumlarına yönelik sembolik bağlantılar (symlink) bulunur.
+
+Örneğin, aşağıdaki dizin listesi:
+
+ls -l /home/postgres/tblspc/
+total 4
+drwx------ 2 postgres postgres 4096 Apr 21 10:08 PG_14_202107181
+
+
+PG_14_202107181:
+"PG_14" → PostgreSQL’in büyük versiyonu
+"202107181" → Katalog versiyon numarası
+PostgreSQL, oluşturulan tablespace için ana veri dizini içinde bir symlink oluşturur (örn. $PGDATA/pg_tblspc/ altında).
+
+5.3. Tablespace Kullanımına Örnek
+Örneğin, e-ticaret sitenizde büyük sipariş tablonuzu farklı bir diske taşımak istiyorsunuz:
+
+Tablespace Oluşturma:
+
+CREATE TABLESPACE siparisler_tbs LOCATION '/home/postgres/tblspc/';
+Tabloyu Yeni Tablespace’e Yerleştirme:
+
+
+CREATE TABLE siparisler (
+    id SERIAL PRIMARY KEY,
+    musteri_adi TEXT,
+    toplam_tutar NUMERIC
+) TABLESPACE siparisler_tbs;
+
+Bu sayede, siparisler tablosunun verileri ana dizin yerine /home/postgres/tblspc/ dizininde saklanır.
+
+6. Heap (Yığın) Tablo Dosyasının İç Düzeni
+
+6.1. Fiziksel Yapı: Sayfalar ve Block Numaraları
+Her tablo dosyası, 8 KB’lik sabit boyutlu sayfalara bölünür.
+Sayfalar 0’dan başlayarak numaralandırılır.
+Tablonun boyutu, veri ekledikçe her eklenen sayfa ile 8 KB artar.
+
+6.2. Heap Tuple (Satır) Yapısı
+Heap Tuple, PostgreSQL'de bir tablodaki her bir satırı temsil eden veri yapısıdır.
+Bir heap tuple şu bölümlerden oluşur:
+
+Header Data:
+Satır hakkında meta bilgileri (örneğin, oluşturulma zamanı, silinme durumu vb.) içerir.
+Line Pointer:
+Sayfa başındaki offset numarası; tuple’ın fiziksel konumunu belirler.
+Veri (Tuple Data):
+Asıl saklanan bilgi, örneğin oyuncu puanı, müşteri bilgileri vb.
+Yerleştirme Yöntemi:
+
+Satırlar, sayfanın en üstündeki line pointer alanı oluşturulup, asıl tuple verisi sayfanın sonundan (alt kısmından) başa doğru eklenir.
+
+Heap Tuple Header, aşağıdaki alanlardan oluşur:
+
+xmin:
+Satırı ekleyen işlemin (transaction) ID'sini belirtir.
+Bu alan, satırın ne zaman eklendiğini gösterir.
+
+xmax:
+Satırı silen veya güncelleyen işlemin (transaction) ID'sini belirtir.
+Eğer satır silinmemişse, bu alan 0 olur.
+
+cid:
+İşlem içindeki komut sırasını belirtir.
+Bu alan, aynı işlemde birden fazla satır eklendiğinde veya güncellendiğinde kullanılır.
+
+ctid:
+Satırın fiziksel konumunu belirtir.
+ctid, blok numarası (block number) ve ofset (offset) olarak iki parçadan oluşur.
+Örneğin, (0,1) blok 0'daki 1. satırı gösterir.
+
+infomask:
+Satırın durumu hakkında bilgi verir.
+Örneğin:
+Satırın silinip silinmediği.
+Satırın güncellenip güncellenmediği.
+Satırın HOT (Heap Only Tuple) olup olmadığı.
+
+HOT (Heap Only Tuple):
+HOT, güncelleme işlemlerinde performansı artırmak için kullanılır.
+Eğer bir satır güncellenirse ve yeni sürümü aynı sayfada (blokta) saklanırsa, bu bir HOT güncellemesidir. 
+
+6.3. CTID (Physical Tupple ID)
+CTID, her satırın fiziksel konumunu gösteren iki bileşenli bir özniteliktir:
+
+Block Number: Satırın bulunduğu sayfa numarası.
+Line Pointer: Sayfa içindeki konum (offset).
+
+Örnek Sorgu:
+
+SELECT ctid, data FROM sampletbl WHERE ctid = '(0,1)';
+
+Örnek Çıktı:
+
+ ctid  |   data    
+-------+-----------
+ (0,1) | AAAAAAAAA
+(1 row)
+
+Açıklama:
+(0,1) ifadesi, 0 numaralı sayfadaki 1. tuple’ı gösterir.
+Bu yöntem, özellikle doğrudan fiziksel konum bilgisine erişmek için kullanılır.
+
+6.4. TOAST (The Oversize-Attribute Storage Technique)
+TOAST, bir satırın (tuple) boyutu yaklaşık 2 KB’dan (8 KB’nin yaklaşık 1/4’ü) büyük olduğunda devreye girer.
+Amaç:
+Büyük veri parçalarını ana tablo (heap) içinde depolamak yerine, ayrı bir tabloya (TOAST tablosu) taşımak.
+Örnek Senaryo:
+Bir belge saklama tablonuzda, belge_icerik sütunu çok büyük veriler içeriyorsa, PostgreSQL otomatik olarak bu veriyi TOAST tablosunda depolar ve ana tabloda yalnızca bir referans (pointer) bırakır.
+
+7. Kayıt Yazma ve Okuma Yöntemleri
+
+7.1. Heap Tuple Yazma
+Yazma Süreci:
+Line Pointer Oluşturma:
+Satır ekleneceği sayfanın üst kısmına, satırın konumunu belirten bir line pointer eklenir.
+Tuple Yazımı:
+Tuple, header (meta veriler) ve veri bölümlerinden oluşur.
+Yazma işlemi, sayfanın sonundan başlayarak yukarı doğru gerçekleştirilir.
+Örnek:
+Bir sipariş tablosuna yeni kayıt eklenirken, PostgreSQL sayfanın üst kısmında pointer, alt kısmında ise satır verisini yerleştirir.
+
+7.2. Heap Tuple Okuma Yöntemleri
+Verilerin okunması için PostgreSQL çeşitli tarama yöntemleri kullanır:
+
+Sequential Scan
+Nasıl Çalışır?
+Tablodaki tüm sayfalar sırasıyla okunur.
+Kullanım Durumu:
+Küçük tablolarda veya indeks kullanılmadığında tercih edilir.
+
+Index Scan
+Nasıl Çalışır?
+Oluşturulan indeksler kullanılarak, aranan değerin bulunduğu satıra hızlıca ulaşılır.
+Örnek:
+Bir müşteri adı veya ürün numarasına göre arama yapılırken kullanılır.
+
+TID-Scan (CTID Kullanımı)
+Nasıl Çalışır?
+CTID kullanılarak, satırın fiziksel konumu doğrudan belirlenir.
+
+Örnek Sorgu:
+
+SELECT ctid, data FROM sampletbl WHERE ctid = '(0,1)';
+Bu sorgu, CTID’si (0,1) olan satırı getirir; yani 0 numaralı sayfadaki 1. satır okunur.
