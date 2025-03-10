@@ -1,0 +1,229 @@
+1. PostgreSQL'e Giriş ve Bağlantı Yönetimi**
+
+1.1 PostgreSQL'e Bağlanma
+
+PostgreSQL istemcisine giriş yapmak için terminalde aşağıdaki komutu kullanabilirsin:
+```bash
+psql -U postgres
+```
+
+- `-U postgres`: PostgreSQL'in süper kullanıcısı olan `postgres` ile bağlanır.
+- Varsayılan olarak `localhost` ve `5432` portu kullanılır.
+
+Eğer belirli bir veritabanına bağlanmak istiyorsan:
+```bash
+psql -U myuser -d mydatabase
+```
+
+Farklı bir sunucuya bağlanmak için:
+```bash
+psql -U myuser -h 192.168.1.100 -p 5433 -d mydatabase
+```
+
+- `-h`: Sunucu IP adresi
+- `-p`: PostgreSQL’in çalıştığı port (varsayılan: `5432`)
+
+Mevcut bağlantıları görmek için:
+```sql
+SELECT * FROM pg_stat_activity;
+```
+
+Bu komut, PostgreSQL’e bağlı olan tüm istemcileri ve çalıştırılan sorguları listeler.
+
+
+2. Veritabanı Yönetimi
+
+2.1 Yeni Bir Veritabanı Oluşturma**
+```sql
+CREATE DATABASE testdb;
+```
+
+Belirli bir kullanıcıya ait veritabanı oluşturmak için:
+```sql
+CREATE DATABASE testdb OWNER myuser;
+```
+
+Veritabanını belirli bir tablespace içine yerleştirmek için:
+```sql
+CREATE DATABASE testdb TABLESPACE ts01;
+```
+
+Mevcut veritabanlarını listeleme:
+```sql
+\l
+```
+
+2.2 Belirli Bir Veritabanına Bağlanma**
+```sql
+\c testdb
+```
+
+Bağlantıyı doğrulamak için:
+```sql
+SELECT current_database();
+```
+
+2.3 Veritabanının Adını Değiştirme
+```sql
+ALTER DATABASE testdb RENAME TO test20;
+```
+
+2.4 Veritabanını Silme
+```sql
+DROP DATABASE test20;
+```
+
+Bağlı kullanıcıları kapatarak silmek için:
+```sql
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'test20';
+DROP DATABASE test20;
+```
+
+
+3. Kullanıcı Yönetimi
+
+3.1 Yeni Bir Kullanıcı Oluşturma
+```sql
+CREATE USER myuser WITH PASSWORD 'mypassword';
+```
+
+Kullanıcının yeni veritabanları oluşturmasına izin vermek için:
+```sql
+CREATE USER myuser WITH PASSWORD 'mypassword' CREATEDB;
+```
+
+Mevcut kullanıcıları listeleme:
+```sql
+\du
+```
+
+3.2 Kullanıcıya Yetki Verme
+
+Tam yetki vermek için:
+```sql
+GRANT ALL PRIVILEGES ON DATABASE testdb TO myuser;
+```
+
+Sadece okuma yetkisi vermek için:
+```sql
+GRANT CONNECT ON DATABASE testdb TO myuser;
+GRANT USAGE ON SCHEMA public TO myuser;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO myuser;
+```
+
+3.3 Kullanıcının Şifresini Değiştirme
+```sql
+ALTER USER myuser WITH PASSWORD 'newpassword';
+```
+
+3.4 Kullanıcıyı Silme
+```sql
+DROP USER myuser;
+```
+
+
+4. Tablespace (Tablo Alanı) Yönetimi
+
+4.1 Yeni Bir Tablespace Oluşturma
+```sql
+CREATE TABLESPACE ts01 LOCATION '/database/ts01';
+```
+
+Tablespace’leri listeleme:
+```sql
+\db+
+```
+
+Belirli bir tablespace içinde veritabanı oluşturma:
+```sql
+CREATE DATABASE testdb02 TABLESPACE ts01;
+```
+
+4.2 Tablespace İçinde Tablo veya İndeks Oluşturma
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100) UNIQUE
+) TABLESPACE ts01;
+```
+
+İndeks oluşturma:
+```sql
+CREATE INDEX idx_users_email ON users(email) TABLESPACE ts01;
+```
+
+4.3 Tablespace Silme
+```sql
+DROP TABLESPACE ts01;
+```
+
+
+5. Tablolar ve Veritabanı İşlemleri
+
+5.1 Tabloları Listeleme
+```sql
+SELECT * FROM pg_tables;
+```
+
+Sadece `public` şemasındaki tabloları görmek için:
+```sql
+SELECT tablename FROM pg_tables WHERE schemaname = 'public';
+```
+
+Hızlı listeleme:
+```sql
+\dt
+```
+
+5.2 Yeni Bir Tablo Oluşturma
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100) UNIQUE
+);
+```
+
+5.3 Veri Ekleme
+```sql
+INSERT INTO users (name, email) VALUES ('Ali', 'ali@example.com');
+```
+
+5.4 Veri Okuma
+```sql
+SELECT * FROM users;
+```
+
+5.5 Veri Güncelleme
+```sql
+UPDATE users SET email = 'ali123@example.com' WHERE name = 'Ali';
+```
+
+5.6 Veri Silme
+```sql
+DELETE FROM users WHERE name = 'Ali';
+```
+
+
+6. PostgreSQL Terminali (**``**) Kullanımı
+
+PostgreSQL versiyonunu öğrenme:
+```sql
+SELECT version();
+```
+
+Bağlı olunan veritabanını görmek:
+```sql
+SELECT current_database();
+```
+
+Komutlar hakkında yardım almak:
+```sql
+\?
+```
+
+SQL komutlarının nasıl çalıştığını görmek için:
+```sql
+\h ALTER TABLE
+```
