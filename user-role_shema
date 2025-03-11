@@ -1,0 +1,264 @@
+1. PostgreSQL’de Rol (Role) ve Kullanıcı (User) Kavramları
+
+1.1 Rol ve Kullanıcı Arasındaki Fark
+	•	PostgreSQL’de rol (role) kavramı, hem kullanıcı (user) hem de grup (group) rolü mantığını kapsar.
+	•	CREATE USER, aslında CREATE ROLE komutunun bir alt kümesidir ve LOGIN özelliği eklenmiş roller için sıklıkla kullanılır.
+
+1.2 Rol Oluşturma
+
+Basit bir rol (login olmadan):
+CREATE ROLE myrole;
+
+Oturum açabilen (login) bir kullanıcı:
+CREATE ROLE myuser LOGIN PASSWORD 'mypassword';
+
+veya eşdeğer şekilde:
+CREATE USER myuser WITH PASSWORD 'mypassword';
+
+1.3 Yetkileri Belirleyen Seçenekler
+	•	SUPERUSER: Süper kullanıcı, tüm yetkilere sahiptir.
+	•	CREATEDB: Yeni veritabanı oluşturma yetkisi.
+	•	CREATEROLE: Yeni roller oluşturma yetkisi.
+	•	INHERIT / NOINHERIT: Rolün üyesi olduğu rollerin yetkilerini otomatik miras alıp alamayacağını belirler.
+	•	VALID UNTIL: Şifrenin/geçerliliğin son kullanma tarihini belirler.
+
+Örnek:
+CREATE ROLE admin LOGIN PASSWORD 'admin123' 
+  SUPERUSER CREATEDB CREATEROLE INHERIT VALID UNTIL '2025-12-31';
+
+1.4 Mevcut Rolleri Listeleme
+
+psql içinde:
+\du
+
+veya SQL sorgusu:
+SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolcanlogin, rolvaliduntil
+FROM pg_roles;
+
+1.5 Rolün Süre Kısıtını (VALID UNTIL) Ayarlama
+
+CREATE ROLE temp_user LOGIN PASSWORD 'temp123' VALID UNTIL '2026-01-01';
+
+Bu tarihten sonra temp_user giriş yapamaz. Süreyi değiştirmek için:
+ALTER ROLE temp_user VALID UNTIL '2027-06-30';
+
+Süresiz yapmak için:
+ALTER ROLE temp_user VALID UNTIL 'infinity';
+
+1.6 Rolü Silme
+
+Bir rolü silmek için:
+DROP ROLE myrole;
+
+Ancak bu işlemin başarısız olmaması için rolün:
+	•	Herhangi bir veritabanına sahip olmaması,
+	•	Sahip olduğu tüm nesnelerden (tablolar, şemalar vb.) sahipliğinin devredilmesi,
+	•	Diğer gruplardan çıkarılması (veya ona verilen yetkilerin geri alınması)
+gerekir.
+
+Gerekirse şu komutlar yardımcı olur:
+
+-- Tüm sahiplikleri başka bir role devret
+REASSIGN OWNED BY myrole TO postgres;
+
+-- myrole'un bütün yetkilerini sil
+DROP OWNED BY myrole;
+
+-- Artık myrole'u silebilirsin
+DROP ROLE myrole;
+
+
+
+2. Grup Roller ve Üyelik İşlemleri
+
+2.1 Bir Rolü (Kullanıcıyı) Başka Bir Rolle (Gruba) Dahil Etme
+
+GRANT group01 TO user01;
+
+	•	user01 artık group01 üyesi olur.
+	•	INHERIT veya NOINHERIT durumu, bu yetkileri otomatik alıp almadığını belirler.
+
+2.2 Tersi: Bir Kullanıcıyı Gruptan Çıkarma
+
+REVOKE group01 FROM user01;
+Bu işlemle user01, group01un yetkilerini kullanamaz hale gelir.
+
+2.3 INHERIT ve NOINHERIT
+	•	INHERIT: Rol, üyesi olduğu grubun haklarını otomatik miras alır.
+	•	NOINHERIT: Rol, grubun haklarını kullanabilmek için SET ROLE group_adi; komutunu çalıştırmalıdır.
+
+Örnek:
+CREATE ROLE user01 LOGIN INHERIT;
+CREATE ROLE group01 NOINHERIT;
+GRANT group01 TO user01;
+
+Burada user01, group01un NOINHERIT özelliğinden dolayı grubun yetkilerini otomatik alamaz. Aktif etmek için:
+SET ROLE group01;
+-- group01’un yetkilerini kullanır
+RESET ROLE;
+-- Eski haline döner
+
+
+
+3. Şema (Schema) Oluşturma ve Yönetimi
+
+3.1 Şema Nedir?
+	•	Şema, bir veritabanındaki tabloları, görünümleri, fonksiyonları ve diğer nesneleri mantıksal olarak gruplamak için kullanılır.
+	•	PostgreSQL’de varsayılan olarak public adlı bir şema bulunur.
+
+3.2 Şema Oluşturma
+CREATE SCHEMA my_schema;
+
+Sahiplik atamak istersen:
+CREATE SCHEMA my_schema AUTHORIZATION myuser;
+
+Bu, my_schema şemasının sahibini myuser yapar.
+
+3.3 Şema İçinde Nesne Oluşturma
+CREATE TABLE my_schema.my_table (
+    id SERIAL PRIMARY KEY,
+    name TEXT
+);
+
+Şema belirtilmezse, varsayılan şema public kabul edilir.
+
+3.4 Mevcut Şemaları Görüntüleme
+
+SELECT schema_name
+FROM information_schema.schemata;
+
+3.5 Şema Silme
+DROP SCHEMA my_schema;
+
+Eğer içinde nesneler varsa önce silmek gerekir veya:
+DROP SCHEMA my_schema CASCADE;
+kullanarak şema içindeki tüm nesneleriyle birlikte silebilirsiniz.
+
+
+4. Şema Yetkileri: GRANT USAGE ve GRANT CREATE
+
+4.1 GRANT USAGE ON SCHEMA
+
+Bir kullanıcının veya rolün şemaya erişebilmesi (kısaca, şema adını kullanarak içindeki nesnelere referans verebilmesi) için:
+GRANT USAGE ON SCHEMA my_schema TO myuser;
+
+Bu komut yalnızca şemayı “görme”/kullanma yetkisi verir; tablolarda SELECT, INSERT vb. işlemler yapmak için ek yetkiler verilmelidir. Örneğin:
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA my_schema TO myuser;
+
+4.2 GRANT CREATE ON SCHEMA
+
+Şema içinde yeni tablolar, görünümler ve diğer nesneler oluşturma yetkisi vermek için kullanılır:
+
+GRANT CREATE ON SCHEMA my_schema TO myuser;
+
+	•	Bu tek başına verildiğinde, mevcut nesneler üzerinde işlem yapma yetkisi vermez; yalnızca yeni nesne oluşturma hakkı tanır.
+
+Sıklıkla şu şekilde kombine edilir:
+
+GRANT USAGE, CREATE ON SCHEMA my_schema TO myuser;
+
+Bu sayede kullanıcı hem şemayı kullanabilir (görebilir) hem de yeni nesneler oluşturabilir.
+
+4.3 Yetkileri Kaldırma (REVOKE)
+	•	Şemadan kullanım iznini kaldırmak:
+REVOKE USAGE ON SCHEMA my_schema FROM myuser;
+
+
+	•	Şema içinde nesne oluşturma hakkını kaldırmak:
+REVOKE CREATE ON SCHEMA my_schema FROM myuser;
+
+
+	•	Tüm yetkileri kaldırmak için:
+REVOKE ALL ON SCHEMA my_schema FROM myuser;
+
+
+
+
+5. search_path Mantığı
+
+5.1 search_path Nedir?
+	•	PostgreSQL’de nesnelere (tablolar, fonksiyonlar vb.) şema adı belirtmeden erişirken hangi şemaların taranacağını ve hangi sırayla taranacağını belirleyen değişkendir.
+	•	Varsayılan olarak "$user", public şeklindedir. Bu şu anlama gelir:
+	1.	Oturum açan kullanıcının adıyla aynı olan şemaya bak,
+	2.	Bulamazsan public şemasına bak.
+
+5.2 SHOW search_path;
+Mevcut oturumda ayarlı olan search_path değerini gösterir:
+
+SHOW search_path;
+
+5.3 SET search_path TO ...
+
+Geçici olarak (mevcut oturum boyunca):
+
+SET search_path TO my_schema;
+
+Bundan sonra SELECT * FROM my_table; komutu, my_schema.my_table tablosunu kastediyor olur.
+
+Birden fazla şema belirtmek de mümkündür:
+
+SET search_path TO my_schema, public;
+
+Önce my_schema, orada yoksa public taranır.
+
+5.4 Kalıcı Ayarlamak: ALTER ROLE
+
+Bir kullanıcının her oturum açtığında otomatik belirli bir şemayı öncelikli yapmasını istersen:
+
+ALTER ROLE myuser SET search_path TO my_schema;
+
+Böylece myuser kullanıcı olarak bağlandığında artık my_schema önde gelir.
+
+5.5 Varsayılan Ayara Dönmek
+
+RESET search_path;
+
+komutu çalıştırarak oturum bazında varsayılan "$user", public" sıralamasına geri dönersin.
+
+
+6. Örnek Senaryo ve Adımlar
+
+Diyelim ki bir veritabanında düzenli bir yapıya sahip olmak istiyorsun ve kullanıcıların yetkilerini sınırlamak istiyorsun:
+	1.	Rol Oluşturma ve Oturum Şifresi Ayarlama
+
+CREATE ROLE myuser LOGIN PASSWORD 'mypassword';
+
+
+	2.	Şema Oluşturma
+
+CREATE SCHEMA my_schema AUTHORIZATION myuser;
+
+Bu sayede my_schema’nın sahibi myuser olur.
+
+	3.	Şema Yetkilerini Ayarlama
+	•	Eğer farklı bir kullanıcıya ya da bir grup rolüne bu şemayı kullanma izni vereceksen:
+
+CREATE ROLE other_user LOGIN PASSWORD 'otherpass';
+GRANT USAGE ON SCHEMA my_schema TO other_user;
+GRANT SELECT ON ALL TABLES IN SCHEMA my_schema TO other_user;
+
+
+	•	Eğer other_user tablo da oluşturabilsin istiyorsan:
+
+GRANT CREATE ON SCHEMA my_schema TO other_user;
+
+
+	4.	search_path Ayarlama
+
+ALTER ROLE myuser SET search_path TO my_schema, public;
+
+Böylece myuser, sisteme bağlandığında varsayılan olarak my_schema içinde işlem yapar.
+
+	5.	Tablo Oluşturma
+
+CREATE TABLE my_schema.users (
+    id SERIAL PRIMARY KEY,
+    username TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+myuser tablosu, kendi şeması içinde oluşturduğu için doğrudan kullanabilir.
+
+	6.	Yetki Revizyonu (Opsiyonel)
+	•	REVOKE ALL ON SCHEMA my_schema FROM PUBLIC; → İstemiyorsan tüm genel erişimi kapatabilirsin.
+	•	GRANT USAGE, CREATE ON SCHEMA my_schema TO mygroup; → Belirli bir grup role’üne yetki verebilirsin.
