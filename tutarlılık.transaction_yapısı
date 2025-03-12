@@ -1,0 +1,319 @@
+1. Eşzamanlılık Sorunları ve Çakışmalar
+
+a. Dirty Read (Kirli Okuma)
+	•	Tanım:
+      Bir işlem, başka bir işlemin henüz commit etmediği veriyi okuduğunda oluşur. 
+      Eğer ilk işlem rollback yaparsa, ikinci işlem yanlış (kirli) veri ile çalışmış olur.
+
+  •	Örnek Senaryo:
+	•	Transaction A: Bir banka hesabından 1000 TL çekmek için bakiyeyi günceller, fakat henüz commit etmez.
+	•	Transaction B: Aynı anda, henüz commit edilmemiş güncellenmiş bakiyeyi okur.
+	•	Sonuç: Transaction A rollback yaparsa, Transaction B yanlış veriyi okumuş olur.
+	•	Çözüm:
+İzolasyon seviyesi olarak READ COMMITTED veya daha yüksek seviye kullanılır.
+
+
+b. Non-Repeatable Read (Tekrarlanamayan Okuma)
+	•	Tanım:
+      Bir işlem, aynı sorguyu farklı zamanlarda çalıştırdığında, arada başka bir işlemin veriyi güncellemesi sonucu farklı sonuçlar alır.
+	
+  •	Örnek Senaryo:
+	•	Transaction A: Bir müşterinin hesap bakiyesini okur (örneğin 5000 TL).
+	•	Transaction B: Bu arada hesabı 7000 TL’ye günceller ve commit eder.
+	•	Transaction A: Aynı sorguyu tekrar çalıştırdığında 7000 TL görür.
+	•	Çözüm:
+REPEATABLE READ izolasyon seviyesi, aynı işlem içindeki okuma sonuçlarının sabit kalmasını sağlar.
+
+
+c. Phantom Read (Hayalet Okuma)
+	•	Tanım:
+      Bir işlem, belirli bir kriterle veri okurken, diğer bir işlem aynı kriterle yeni kayıt ekleyebilir veya mevcut kaydı silebilir; 
+      böylece aynı sorgunun farklı sonuçları gözlemlenir.
+	
+  •	Örnek Senaryo:
+	•	Transaction A: Maaşı 5000 TL’nin üzerinde olan çalışanları listeleyen bir sorgu çalıştırır (ilk çalıştırmada 5 kişi listeleniyor).
+	•	Transaction B: Yeni bir çalışan ekler (örneğin, maaşı 7500 TL).
+	•	Transaction A: Sorgusunu tekrar çalıştırdığında 6 kişi listelenir.
+	•	Çözüm:
+SERIALIZABLE izolasyon seviyesi kullanıldığında, diğer işlemlerin ekleme/silme yapması engellenir.
+
+
+d. Write-Write Çakışmaları (Lost Update)
+	•	Tanım:
+      İki işlem aynı satırı eş zamanlı güncellerse, biri diğerinin güncellemesini üzerine yazabilir ve bazı güncellemeler kaybolabilir.
+	
+  •	Örnek Senaryo:
+	•	İki kullanıcı aynı ürünün stok bilgisini güncellemeye çalışır.
+	•	Transaction A, stoğu 5 birim düşürür; Transaction B, stoğu 3 birim düşürür.
+	•	Hangi güncellemenin önce commit edildiğine bağlı olarak, diğeri üzerine yazılır.
+	•	Çözüm:
+Optimistic Locking veya Pessimistic Locking yöntemleri ile bu çakışmalar kontrol altına alınır.
+
+
+2. Pratik Uygulamalar (SQL Örnekleri)
+
+a. Dirty Read Pratiği (SQL Server Örneği)
+
+-- Transaction A (Terminal 1)
+BEGIN TRANSACTION;
+UPDATE BankAccount SET Balance = 4000 WHERE AccountID = 1;
+-- Henüz COMMIT yapmadan bekle
+
+-- Transaction B (Terminal 2)
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+BEGIN TRANSACTION;
+SELECT * FROM BankAccount;
+COMMIT;
+
+-- Sonrasında Transaction A'da:
+ROLLBACK;
+
+b. Non-Repeatable Read Pratiği (PostgreSQL Örneği)
+
+-- Transaction A (Terminal 1)
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+SELECT * FROM BankAccount WHERE AccountID = 1;
+-- Bekle
+
+-- Transaction B (Terminal 2)
+BEGIN;
+UPDATE BankAccount SET Balance = 3000 WHERE AccountID = 1;
+COMMIT;
+
+-- Transaction A (Terminal 1)
+SELECT * FROM BankAccount WHERE AccountID = 1;
+COMMIT;
+
+c. Phantom Read Pratiği (PostgreSQL Örneği)
+
+-- Örnek tablo oluşturma:
+CREATE TABLE Employees (
+    EmployeeID SERIAL PRIMARY KEY,
+    Name VARCHAR(50),
+    Salary DECIMAL(10,2)
+);
+INSERT INTO Employees (Name, Salary) VALUES ('Ahmet', 6000), ('Mehmet', 7000);
+
+-- Transaction A (Terminal 1)
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+BEGIN;
+SELECT * FROM Employees WHERE Salary > 5000;
+-- Bekle
+
+-- Transaction B (Terminal 2)
+BEGIN;
+INSERT INTO Employees (Name, Salary) VALUES ('Ali', 7500);
+COMMIT;
+
+-- Transaction A (Terminal 1)
+SELECT * FROM Employees WHERE Salary > 5000;
+COMMIT;
+
+d. Write-Write Çakışması Pratiği (PostgreSQL Örneği)
+
+-- Örnek ürün tablosu oluşturma:
+CREATE TABLE Products (
+    ProductID SERIAL PRIMARY KEY,
+    ProductName VARCHAR(100),
+    Stock INT
+);
+INSERT INTO Products (ProductName, Stock) VALUES ('Laptop', 10);
+
+-- Transaction A (Terminal 1)
+BEGIN;
+SELECT Stock FROM Products WHERE ProductID = 1;
+UPDATE Products SET Stock = Stock - 5 WHERE ProductID = 1;
+-- COMMIT yapmadan bekle
+
+-- Transaction B (Terminal 2)
+BEGIN;
+SELECT Stock FROM Products WHERE ProductID = 1;
+UPDATE Products SET Stock = Stock - 3 WHERE ProductID = 1;
+COMMIT;
+
+-- Transaction A (Terminal 1)
+COMMIT;
+
+Not: Bu durumda, Transaction B’nin güncellemesi Transaction A’nınkini geçersiz kılabilir. 
+Optimistic Locking veya row versioning kullanılabilir.
+
+
+3. PostgreSQL Transaction ID (TXID) ve MVCC Detayları
+
+a. Transaction ID (TXID) ve MVCC
+	•	Transaction ID (TXID):
+Her işlem için benzersiz, artan bir kimliktir. MVCC yapısının temelidir.
+	•	MVCC:
+Her satır, oluşturulma (xmin) ve geçersiz kılınma (xmax) TXID’leri ile saklanır. 
+Bu sayede işlemler, kendi başladıkları anda veritabanının tutarlı bir snapshot’ını görür.
+
+b. İlgili Sistem Sütunları ve Fonksiyonlar
+	•	xmin:
+Satırın hangi transaction tarafından oluşturulduğunu gösterir.
+	•	xmax:
+Satırın hangi transaction tarafından silindiğini veya güncellendiğini belirtir.
+	•	ctid:
+Satırın fiziksel konumunu (blok, satır numarası) ifade eder; UPDATE gibi işlemlerde yeni satır oluşturulduğundan değişir.
+	•	cid:
+Aynı transaction içinde birden fazla işlem yapılırsa, komut sırasını belirler.
+	•	txid_current():
+O anki transaction’ın TXID’sini döndürür.
+	•	txid_status():
+Belirtilen TXID’nin durumunu (committed, aborted, in progress) sorgular.
+
+c. Wraparound Problemi
+	•	Sorun:
+32-bit TXID, yaklaşık 4 milyar işlemde döngüye girer. Wraparound kontrol edilmezse, eski transaction bilgileri güncel gibi algılanabilir.
+	•	Çözüm:
+Autovacuum ve freeze (dondurma) mekanizmaları sayesinde eski satırlar “donmuş” hale getirilir; böylece wraparound etkisi önlenir.
+
+d. Örnek Senaryo: UPDATE İşlemi ve Sistem Sütunları
+	•	Örnek:
+
+CREATE TABLE demo (id SERIAL, val TEXT);
+INSERT INTO demo (val) VALUES ('Hello');
+SELECT xmin, xmax, ctid, val FROM demo;
+
+	•	INSERT:
+	•	xmin: Satırı oluşturan TXID (örneğin 6100)
+	•	xmax: 0 (henüz silinmedi)
+	•	ctid: Fiziksel konum, örn. (0,1)
+	•	cid: 0 (ilk komut)
+	•	UPDATE:
+
+UPDATE demo SET val = 'Hello World' WHERE id = 1;
+SELECT xmin, xmax, ctid, val FROM demo;
+
+	•	Eski Satır:
+	•	xmin: 6100 (orijinal TXID)
+	•	xmax: Güncelleyen TXID (örneğin 6101)
+	•	Yeni Satır:
+	•	xmin: 6101
+	•	xmax: 0
+	•	ctid: Yeni fiziksel konum (örneğin (0,2))
+
+	•	DELETE:
+
+DELETE FROM demo WHERE id = 1;
+SELECT xmin, xmax, ctid, val FROM demo;
+
+	•	Satırın xmax değeri güncelleyen TXID (örneğin 6102) olur; xmin, ctid ve cid değeri orijinal kalır.
+
+
+4. Diğer PostgreSQL Konuları
+
+a. Host Bazlı Yetkilendirme
+	•	pg_hba.conf:
+IP adresi, kullanıcı ve veritabanı bazında erişim kuralları tanımlanır.
+	•	Önemli Noktalar:
+	•	datallowconn ayarı true olmalı.
+	•	Kullanıcının şema üzerinde yetkisi bulunmalı.
+
+
+b. DB Cluster
+	•	Tanım:
+Birden fazla veritabanı sunucusunun birlikte çalıştığı yapı.
+	•	Özellikler:
+	•	Yüksek erişilebilirlik.
+	•	İş yükü dağılımı ve veri yedekliliği.
+
+
+c. relfilenode
+	•	Tanım:
+Her tablo veya indeksin disk üzerindeki fiziksel dosyasını temsil eden benzersiz numaradır.
+	•	İşlev:
+Verinin hangi dosyada saklandığını belirler.
+
+
+d. Vacuum İşlemi
+	•	Amaç:
+MVCC’deki “dead tuple”ları (geçersiz satırları) temizler.
+	•	Türleri:
+	•	VACUUM: Kilitlemeden temizlik yapar, kullanılmayan alanı geri kazanır.
+	•	VACUUM FULL: Tabloyu yeniden düzenler, tablo kilitlenir ve indeksler yeniden oluşturulur.
+
+
+e. Fork
+	•	Tanım:
+Unix/Linux’de bir sürecin tam kopyasının oluşturulması.
+	•	Özellik:
+Ana süreç ile çocuk süreç bağımsız olarak çalışmaya başlar.
+
+
+f. Bellek Parametreleri: work_mem, maintenance_work_mem, temp_buffers
+	•	work_mem:
+Sorgu işlemleri (örneğin sıralama, hash join) için kullanılan geçici bellek.
+	•	maintenance_work_mem:
+VACUUM, REINDEX gibi bakım işlemleri için ayrılan bellek.
+	•	temp_buffers:
+Oturum boyunca kullanılan geçici veri alanıdır.
+
+
+g. Shared Buffer Pool, WAL Buffer, Commit Log
+	•	Shared Buffer Pool:
+Sık kullanılan disk verilerini bellek üzerinde saklar; hızlı erişim sağlar.
+	•	WAL Buffer:
+İşlem değişikliklerinin önce loglandığı geçici bellektir.
+	•	Commit Log:
+İşlemlerin commit durumlarını (makbuz gibi) tutar.
+
+
+h. Transaction Durumları: In-Progress, Commit, Abort
+	•	In-Progress:
+İşlem henüz tamamlanmamış.
+	•	Commit:
+İşlem başarıyla tamamlanıp değişiklikler kalıcı hale gelmiştir.
+	•	Abort (Rollback):
+İşlem iptal edilmiş, yapılan değişiklikler geri alınmıştır.
+
+
+i. Tablo, Index, View
+	•	Tablo:
+Satır ve sütunlar halinde verinin saklandığı temel yapı.
+	•	Index:
+Veriye hızlı erişim sağlamak için oluşturulan “arama rehberi”.
+	•	View:
+Bir veya daha fazla tablodan dinamik olarak oluşturulan sanal veri seti.
+
+
+j. Concurrency Control (Eşzamanlılık Kontrolü) ve S2PL
+	•	Amaç:
+Aynı anda çalışan işlemlerin veri tutarlılığını korumak.
+	•	Yöntemler:
+	•	Locking: Satır veya tablo seviyesinde kilitleme.
+	•	MVCC: Her işlemin kendi snapshot’ını görmesini sağlar.
+	•	S2PL (Strict Two-Phase Locking): Kilit alımını büyüme (growing) ve daralma (shrinking) aşamalarına ayırır; commit veya rollback gerçekleşene kadar kilitler serbest bırakılmaz.
+
+
+k. ACID Kuralları
+	•	Atomicity: İşlem ya tamamen gerçekleşir ya da hiç gerçekleşmez (ör. banka transferinde her iki hesap güncellenmeli).
+	•	Consistency: İşlem sonrası veritabanı tüm kısıtlama ve kurallara uygun olmalı.
+	•	Isolation: İşlemler birbirinden izole şekilde çalışmalı, ara sonuçlar görünmemeli.
+	•	Durability: Commit sonrası yapılan değişiklikler kalıcı olmalıdır.
+
+
+l. Optimistic Concurrency Control (OCC)
+	•	Tanım:
+İşlemlerin başlangıçta kilit kullanmadan çalışmasına izin verip, işlem sonunda çakışmaları kontrol eder.
+	•	Özellik:
+	•	Çakışma varsa işlem geri alınır.
+	•	Okuma ağırlıklı sistemlerde yüksek performans sağlar.
+
+
+m. Isolation Levels ve Snapshot Isolation
+	•	İzolasyon Seviyeleri:
+	•	Read Uncommitted: En düşük seviye; kirli okuma mümkün.
+	•	Read Committed: Yalnızca commit edilmiş veriler görünür.
+	•	Repeatable Read: İşlem boyunca okunan verinin değişmemesi sağlanır (ancak phantom okuma olabilir).
+	•	Serializable: En yüksek izolasyon, tüm çakışmaları engeller.
+	•	Snapshot Isolation:
+Her işlem başladığında veritabanının o anki snapshot’ını kullanır, diğer işlemlerin commit edilmemiş değişiklikleri görünmez.
+
+
+n. PostgreSQL SSI (Serializable Snapshot Isolation)
+	•	Tanım:
+SERIALIZABLE izolasyon seviyesini MVCC tabanlı snapshot’larla daha performanslı hale getiren mekanizmadır.
+	•	Özellikleri:
+	•	Gerçek çakışmalar tespit edildiğinde işlem rollback edilir.
+	•	Kilit tabanlı serializable’a göre daha yüksek eşzamanlılık sunar.
