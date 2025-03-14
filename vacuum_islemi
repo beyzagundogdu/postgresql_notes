@@ -1,0 +1,174 @@
+1. PostgreSQL’de VACUUM Nedir?
+
+PostgreSQL, MVCC (Multi-Version Concurrency Control) mekanizmasına dayalı çalışır. Bu mekanizma, aynı anda birden fazla kullanıcının veriye tutarlı biçimde erişmesini sağlar. 
+Ancak UPDATE veya DELETE gibi işlemlerde, eski satır sürümleri hemen fiziksel olarak silinmez; “ölü” (dead) olarak işaretlenir ve uygun bir vakitte temizlenmeyi bekler.
+İşte bu temizliği sağlayan temel araç VACUUM komutudur.
+
+1.1. Dead Tuple (Ölü Satır) Nedir?
+	•	Bir satır UPDATE edildiğinde, eski sürüm ölü statüye geçer; yeni bir sürüm “canlı” olur.
+	•	Bir satır DELETE edildiğinde, satır ölü olarak işaretlenir.
+	•	Ölü satırlar diskte yer kaplamaya devam eder; bu da tablolarda “bloat” (şişme) oluşmasına, performans kaybına ve disk kullanımında gereksiz artışa neden olabilir.
+	•	VACUUM bu ölü satırları temizler, böylece tablo ve indekslerden verimlilik sağlanır.
+
+
+2. VACUUM İşlemleri
+
+PostgreSQL’de birkaç farklı VACUUM türü vardır:
+
+2.1. Standart VACUUM
+
+VACUUM tablo_adı;
+VACUUM ANALYZE tablo_adı;
+
+	•	Tabloyu kilitleme seviyesi: SHARE UPDATE EXCLUSIVE (diğer okuma-yazma işlemlerini genelde engellemez).
+	•	Ölü satırları temizler ancak tablo dosya boyutunu fiziksel olarak küçültmez; sadece boş alanı yeniden kullanılabilir hâle getirir.
+	•	VACUUM ANALYZE, hem ölü satırları temizler hem de tablo istatistiklerini (optimizer için) günceller.
+
+2.2. VACUUM FULL
+
+VACUUM FULL tablo_adı;
+
+	•	Tabloyu yeniden yazar, fiziksel boyutu küçültür.
+	•	Tablo kilidi: ACCESS EXCLUSIVE (tabloya tüm erişimi engeller).
+	•	Diskte kalıcı alan kazandırır ancak işlem süresince tabloya erişim sağlanamaz, bu yüzden bakım penceresinde veya düşük trafik dönemlerinde kullanılır.
+	•	İşlem sırasında tabloyu geçici bir dosyaya kopyalar, işlemi tamamladıktan sonra eski dosyayı siler. 
+    Varsayılan olarak tablo hangi tablespace’taysa orada gerçekleşir (farklı disk veya tablespace kullanımı için ayrıca tabloyu taşıma komutları gerekir).
+   
+    Farklı Disk/Tablespace Kullanımı
+	•	VACUUM FULL işleminde tablo varsayılan olarak aynı tablespace’te geçici dosya oluşturur, eski dosyayı siler. Farklı bir disk alanına otomatik geçiş yapmaz.
+	•	Tablonun fiziksel konumunu (diskini) değiştirmek için ek komutlar gerekir:
+	•	ALTER TABLE ... SET TABLESPACE ...
+	•	Manuel yedek/al-geri yükle (backup/restore) yöntemleri vb.
+
+
+2.3. Autovacuum
+	•	PostgreSQL, arka planda çalışan bir “autovacuum daemon” süreci ile belirli parametrelere göre otomatik VACUUM (ve ANALYZE) başlatır.
+	•	Otomatik temizleme sayesinde, tablolar çok şişmeden veya transaction ID wraparound riski yaşanmadan düzenli temizlik yapılır.
+	•	Bazen çok büyük veya çok sık güncellenen tablolarda ek bakım (manuel VACUUM veya VACUUM FULL) gerekebilir.
+
+
+3. Dead Tuples’ları ve Tablonun Durumunu İnceleme
+
+PostgreSQL, tablo istatistiklerini pg_stat_user_tables gibi görünümlerde tutar:
+
+SELECT 
+    n_tup_ins  AS "inserts",
+    n_tup_upd  AS "updates",
+    n_tup_del  AS "deletes",
+    n_live_tup AS "live_tuples",
+    n_dead_tup AS "dead_tuples"
+FROM pg_stat_user_tables
+WHERE schemaname = 'public'
+  AND relname    = 'test01';
+
+	•	n_tup_ins, n_tup_upd, n_tup_del: Tablodaki ekleme, güncelleme, silme sayıları. Tablonun güncellenme yoğunluğunu gösterir.
+	•	n_live_tup (live_tuples): Şu anda geçerli olan (canlı) satır sayısı.
+	•	n_dead_tup (dead_tuples): Ölü satır tahmini. Yüksekse tabloda bloat birikmiş olabilir.
+
+3.1. pg_stat_user_tables ve pg_stat_all_tables
+	•	pg_stat_user_tables: Yalnızca kullanıcı şemalarındaki tabloları listeler (sistem tabloları hariç).
+	•	pg_stat_all_tables: Kullanıcı ve sistem tablolarını birlikte gösterir. İstatistik alanları temelde aynıdır.
+
+3.2. pgstattuple Uzantısı (Extension)
+
+Daha detaylı tablo istatistikleri için:
+
+CREATE EXTENSION IF NOT EXISTS pgstattuple;
+
+SELECT * 
+FROM pgstattuple('public.mytable');
+
+	•	dead_tuple_count: Ölü satır adedi
+	•	dead_tuple_len: Ölü satırların kapladığı byte miktarı
+	•	free_space: Tablo içinde tekrar kullanılabilecek boş alan
+	•	Bu gibi veriler, tabloda ne kadar bloat olduğunu anlamayı kolaylaştırır.
+
+
+4. Otomatik Temizleme (Autovacuum) Parametreleri
+
+postgresql.conf üzerinden veya dinamik yollarla ayarlanabilen autovacuum parametreleri, tablonun ne zaman ve ne sıklıkla vakumlanıp analiz edileceğini belirler.
+
+4.1. Temel Parametreler
+	
+  1.	autovacuum = on
+	•	Autovacuum özelliğini açar/kapatır (varsayılan on, kapatmak önerilmez).
+	
+  2.	autovacuum_naptime = 1min (varsayılan değer)
+	•	Autovacuum süreci, tabloları kontrol ettikten sonra bu süre kadar bekler. Süre dolunca tekrar kontrol eder.
+ 
+  3.	autovacuum_max_workers = 3
+	•	Aynı anda çalışabilecek maksimum autovacuum işçi sayısı. Sistem kaynaklarına göre artırılabilir.
+	
+  4.	log_autovacuum_min_duration = -1
+	•	Autovacuum belirli bir süreyi aşarsa loga yazılır. Örneğin 0 yaparsanız, tüm autovacuum işlemleri loglanır.
+
+4.2. Eşik ve Ölçeklendirme (Threshold ve Scale Factor)
+
+Autovacuum, tablo boyutuna ve ölü/değişen satır miktarına bağlı olarak tetiklenir. Standart formül:
+
+Vakum için:
+
+Eğer (dead_tuple_sayısı > 
+     autovacuum_vacuum_threshold + (autovacuum_vacuum_scale_factor * canlı_satır_sayısı)) 
+  -> VACUUM tetiklenir
+
+Analyze için:
+
+Eğer (değişen_satır_sayısı > 
+      autovacuum_analyze_threshold +(autovacuum_analyze_scale_factor * canlı_satır_sayısı))
+  -> ANALYZE tetiklenir
+
+	•	autovacuum_vacuum_threshold (varsayılan 50): Vakum taban eşiği
+	•	autovacuum_vacuum_scale_factor (varsayılan 0.2): Vakum ölçek faktörü
+	•	autovacuum_analyze_threshold (varsayılan 50): Analyze taban eşiği
+	•	autovacuum_analyze_scale_factor (varsayılan 0.1): Analyze ölçek faktörü
+
+Büyük tablolar hızlı şişiyorsa scale_factor düşürmek mantıklı olabilir.
+
+4.3. Transaction ID Wraparound Parametreleri
+	•	autovacuum_freeze_max_age (varsayılan 200 milyon)
+	•	Satırlar bu “yaş” değerine ulaştığında zorunlu vakum tetiklenir; wraparound problemi önlemek için kritik.
+	•	autovacuum_multixact_freeze_max_age
+	•	Multixact (çoklu kilitleme, sharelock vb.) benzer mantıkla çalışır.
+
+4.4. Maliyet Tabanlı (Cost-Based) Ayarlar
+
+VACUUM veya autovacuum’un sistem kaynaklarını “boğmaması” için bir “maliyet tabanlı” geciktirme mekanizması vardır:
+	•	vacuum_cost_delay: Maliyetin belirli bir eşiği aştığında ne kadar süre beklenileceği (ms).
+	•	vacuum_cost_limit: Ne kadar maliyet puanı toplanınca beklemeye geçileceğini belirleyen limit.
+	•	vacuum_cost_page_hit, vacuum_cost_page_miss, vacuum_cost_page_dirty: Bellekte, diskte vb. işlem maliyet katsayıları.
+
+Bu ayarlar, sistemin ağır yük altında olduğu zamanlarda VACUUM’u yavaşlatabilir; gece gibi sakin zamanlarda ise azaltılabilir.
+
+
+
+5. Özet ve Öneriler
+	
+1.	Düzenli Bakım Şart
+	•	MVCC yapısı gereği, ölü satırlar doğal olarak oluşur. autovacuum = on bırakmak çoğu sistemi sağlıklı tutar.
+	•	Çok büyük/yoğun tablolar için zaman zaman manuel VACUUM veya VACUUM FULL planlayarak, bloat’ı kontrol altına alın.
+	
+2.	Veri İstatistiklerini İnceleyin
+	•	pg_stat_user_tables üzerinden n_live_tup, n_dead_tup değerlerini kontrol edin.
+	•	Ölü satır sayısındaki artış performansı düşürebilir; Vacuum planlaması yaparken bu metriklere bakın.
+	
+3.	Autovacuum Ayarlarını Özelleştirin
+	•	Büyük tablolarda autovacuum_vacuum_scale_factor ve autovacuum_analyze_scale_factor düşürülerek sık vakum/analyze yapılabilir.
+	•	autovacuum_freeze_max_age gibi XID parametreleri varsayılanda genelde yeterlidir; ama çok yoğun transactional sistemlerde değerleri izlemek gerekir.
+	
+4.	Vacuum Full’a Dikkat
+	•	Tabloyu tamamen kilitler, veriye erişim kesintiye uğrar.
+	•	Ciddi disk kazancı sağlar ama işlem süresince tablo kullanılmaz. Planlı bakım zamanlarında yapmak önemlidir.
+
+5.	Performans İzleme
+	•	log_autovacuum_min_duration parametresi ile uzun süren vakumları takip edebilir, log bazında hangi tabloda ne kadar vakit harcandığını görebilirsiniz.
+	•	Maliyet tabanlı (cost-based) ayarları kullanarak, yoğun saatlerde vakumun sistem kaynaklarını aşırı tüketmesini engelleyebilirsiniz.
+
+
+Kısa Sonuç
+	•	VACUUM ve ANALYZE işlemleri, PostgreSQL’de tablo ve indekslerin sağlıklı kalmasını, disk kullanımının optimize olmasını ve sorgu performansının korunmasını sağlar.
+	•	Ölü satırlar (dead tuples) MVCC’nin doğal bir sonucu olduğu için, düzgün yönetilmezse tablolar şişer (bloat).
+	•	Autovacuum, çoğu zaman manuel müdahaleye gerek kalmadan temizliği otomatikleştirir. 
+    Büyük tablolar veya özel yük durumlarında parametre ayarlarını gözden geçirerek daha sık veya daha seyrek çalışması sağlanabilir.
+	•	VACUUM FULL, disk alanını efektif olarak geri kazandırır ancak tabloyu geçici süreyle kilitler. 
+    Özellikle disk dar boğazlarında veya çok şişmiş tablolarda tercih edilir, ancak planlı yapılması önerilir.
