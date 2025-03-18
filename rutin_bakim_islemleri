@@ -1,0 +1,287 @@
+1. PostgreSQL İstatistik Görünümleri ve Sistem Katalogları
+
+pg_stat_database
+	•	Ne İşe Yarar?
+  Her veritabanı için genel istatistik bilgilerini toplar.
+	
+  •	Önemli Sütunlar:
+	•	datid / datname: Veritabanının kimliği ve ismi.
+	•	numbackends: Aktif bağlantı sayısı.
+	•	xact_commit / xact_rollback: Başarılı ve başarısız (rollback) işlem sayıları.
+	•	blks_read / blks_hit: Diskten okunan bloklar ve önbellekten (shared buffer) okunan blok sayıları.
+	•	tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted: Sorguların getirdiği veya etkilenen satır sayıları.
+	•	conflicts, deadlocks: Çakışma ve deadlock sayıları.
+	
+  •	Kullanım Amacı:
+  Genel veritabanı performansını ve kullanım yoğunluğunu izleyerek, sistemdeki darboğazların ve potansiyel problemlerin tespit edilmesi.
+
+
+pg_stat_user_tables
+	•	Ne İşe Yarar?
+  Sadece kullanıcı tarafından oluşturulan tablolara ait detaylı istatistikleri sunar.
+	
+  •	Önemli Sütunlar:
+	•	relid, schemaname, relname: Tablonun kimliği, bulunduğu şema ve ismi.
+	•	seq_scan / seq_tup_read: Sekansiyel tarama sayısı ve bu taramalarda okunan satır sayısı.
+	•	idx_scan / idx_tup_fetch: İndeks tarama sayısı ve indeks kullanılarak getirilen satır sayısı.
+	•	n_tup_ins, n_tup_upd, n_tup_del: Tabloya yapılan INSERT, UPDATE, DELETE işlemleri.
+	•	n_live_tup / n_dead_tup: Güncel (live) ve henüz temizlenmemiş (dead) satır sayıları.
+	•	Bakım İşlemleri: last_vacuum, last_autovacuum, last_analyze gibi kolonlar ile bakım geçmişi.
+
+  •	Kullanım Amacı:
+  Tabloların kullanım yoğunluğunu, veri değişimlerini ve bakım gereksinimlerini analiz etmek.
+
+
+pg_statio_user_tables
+	•	Ne İşe Yarar?
+  Kullanıcı tabloları için disk I/O istatistiklerini detaylandırır.
+	
+  •	Önemli Sütunlar:
+	•	heap_blks_read / heap_blks_hit: Tablo veri bloklarının diskten okunma ve önbellekten (shared buffer) getirilme sayıları.
+	•	idx_blks_read / idx_blks_hit: İndeks bloklarının disk ve önbellekten okunma sayıları.
+	•	toast_blks_read / toast_blks_hit: TOAST verilerinin okunma sayıları.
+	
+  •	Kullanım Amacı:
+   Hangi tablonun veya indeksin disk I/O açısından yoğunluk yarattığını, önbellek kullanım verimliliğini ölçmek.
+
+
+pg_stat_bgwriter
+	•	Ne İşe Yarar?
+  PostgreSQL’in arka plan yazıcısının (background writer) faaliyetlerine dair istatistikleri gösterir.
+	
+  •	Önemli Sütunlar:
+	•	checkpoints_timed / checkpoints_req: Zamanlanmış ve talep üzerine tetiklenen checkpoint sayıları.
+	•	checkpoint_time: Checkpoint işlemlerine harcanan süre.
+	•	buffers_checkpoint, buffers_clean: Checkpoint sırasında ve arka plan yazıcısı tarafından temizlenen buffer sayıları.
+	•	buffers_backend: Kullanıcı sorguları tarafından yazılan buffer sayısı.
+	
+  •	Kullanım Amacı:
+  Disk I/O ve shared buffer yönetimi ile ilgili performans ve sistem yükünü izlemek, optimize etmek.
+
+
+pg_locks
+	•	Ne İşe Yarar?
+  Veritabanındaki kilitlerin durumunu gösterir.
+	
+  •	Önemli Bilgiler:
+	•	pid, locktype, mode, granted: Hangi işlem (PID) hangi tür kilidi hangi modda (örneğin, AccessShareLock, RowExclusiveLock vb.) aldığı ve kilidin verilip verilmediği.
+	
+  •	Kullanım Amacı:
+  Kilitleme problemleri, deadlock durumları ve işlem çakışmalarını tespit etmek, performans sorunlarını analiz etmek.
+ 
+
+Sistem Katalogları (pg_class, pg_namespace, vs.)
+	•	pg_class:
+   Tablolar, indeksler, sekanslar gibi ilişkisel nesnelerin temel bilgilerini tutar.
+	•	pg_namespace:
+  Şema bilgilerini içerir; tabloların hangi şemada bulunduğunu belirlemek için kullanılır.
+	
+•	Diğer Önemli Kataloglar:
+	•	pg_attribute: Tablolara ait sütun bilgileri.
+	•	pg_type: Veri tipleri bilgisi.
+	•	pg_index: İndeks detayları.
+	•	pg_proc: Fonksiyon ve saklı yordam bilgileri.
+	•	pg_constraint: Kısıtlamalar (constraint) bilgileri.
+
+  •	Kullanım Amacı:
+   Veritabanı nesnelerinin yapısını, ilişkilerini ve meta-verilerini detaylı olarak incelemek, sorgulamak ve yönetmek.
+
+
+Örnek Sorgu: Tabloların Boyutlarının İncelenmesi
+
+Aşağıdaki sorgu, kullanıcıya ait tablolar arasında en büyük 5 tabloyu, isimleri ve okunabilir boyutlarıyla birlikte getirir:
+
+SELECT 
+    relname as "table_name",
+    pg_size_pretty(pg_table_size(C.oid)) as "table_size"
+FROM pg_class C
+LEFT JOIN pg_namespace N ON (N.oid = C.relnamespace)
+WHERE 
+    nspname NOT IN ('pg_catalog', 'information_schema')
+    AND nspname !~ '^pg_toast'
+    AND relkind in ('r')
+ORDER BY pg_table_size(C.oid) DESC
+LIMIT 5;
+
+Açıklamalar
+	
+1.	SELECT Bölümü:
+	•	relname as "table_name"
+	•	pg_class sistem kataloğunda bulunan relname sütunu, tablonun (ilişkinin) adını içerir.
+	•	as "table_name" ifadesi, sorgu sonucunda bu sütuna “table_name” adını verir.
+	•	pg_size_pretty(pg_table_size(C.oid)) as "table_size"
+	•	pg_table_size(C.oid): pg_class tablosundaki her bir tablonun OID’sine göre, tablonun gerçek disk boyutunu (byte cinsinden) hesaplar.
+	•	pg_size_pretty(...): Byte cinsinden dönen değeri okunabilir biçime (örneğin KB, MB, GB) dönüştürür.
+	•	Bu sütun sonuçlarda “table_size” adıyla listelenir.
+	
+2.	FROM ve JOIN Bölümü:
+	•	from pg_class C
+	•	pg_class, PostgreSQL’in tüm ilişkisel nesnelerinin (tablolar, indeksler, sekanslar vs.) meta verilerini tutan sistem kataloğudur.
+	•	C takma adı (alias) verilmiştir, böylece sorguda daha kısa isimle kullanılabilir.
+	•	left join pg_namespace N on (N.oid = C.relnamespace)
+	•	pg_namespace, veritabanındaki şemaların bilgilerini içerir.
+	•	Her tablonun hangi şemaya ait olduğunu belirtmek için, pg_class tablosundaki relnamespace sütunu ile pg_namespace tablosundaki oid eşleştirilir.
+	•	N takma adı kullanılarak şemanın ismine erişim sağlanır.
+
+3.	WHERE Bölümü:
+	•	nspname not in ('pg_catalog', 'information_schema')
+	•	pg_catalog ve information_schema gibi sistem şemaları dışındaki tabloları seçmek için bu şemalar hariç tutulur.
+	•	and nspname !~ '^pg_toast'
+	•	pg_toast ile başlayan şemalar, büyük veri alanlarının saklandığı TOAST tablolarını temsil eder. Bu tablolar da sorgudan hariç tutulur.
+	•	and relkind in ('r')
+	•	relkind sütunu, nesnenin türünü belirtir.
+	•	'r' değeri, normal (ordinary) tabloları temsil eder. Böylece sadece gerçek tablo verileri seçilmiş olur (örneğin indeks veya diğer nesneler hariç).
+
+4.	ORDER BY ve LIMIT Bölümü:
+	•	order by pg_table_size(C.oid) desc
+	•	pg_table_size(C.oid) ifadesiyle hesaplanan tablo boyutuna göre, sonuçlar azalan (büyükten küçüğe) sıralanır.
+	•	Bu sayede en büyük tablolar en üstte listelenir.
+	•	limit 5
+	•	Sonuçlardan yalnızca ilk 5 satır alınır; yani en büyük 5 tablo görüntülenir.
+
+2. Sorgu Planlama ve Optimizasyon
+
+EXPLAIN ve EXPLAIN ANALYZE
+	•	EXPLAIN:
+Sorgunun PostgreSQL tarafından nasıl çalıştırılacağını, yani yürütme planını gösterir.
+Örnek:
+
+EXPLAIN SELECT * FROM employees WHERE department_id = 5;
+
+Çıktıda, sorgunun hangi adımlardan geçeceği, hangi indekslerin kullanılacağı ve tahmini maliyet (startup cost ve total cost) bilgileri yer alır.
+
+	•	EXPLAIN ANALYZE:
+Sorguyu gerçekten çalıştırır ve gerçek çalışma süresi, satır sayıları gibi istatistikleri ekrana getirir.
+Örnek:
+
+EXPLAIN ANALYZE SELECT * FROM employees WHERE department_id = 5;
+
+
+	•	Cost Hesaplaması:
+PostgreSQL, tahmini maliyeti hesaplarken, disk I/O ve CPU maliyetlerini dikkate alır. Basitleştirilmiş formül:
+
+total_cost = (disk_read_pages * seq_page_cost) + (rows_scanned * cpu_tuple_cost)
+
+	•	disk_read_pages: Diskten okunması gereken sayfa sayısı.
+	•	seq_page_cost: Bir sayfanın sıralı okunma maliyeti.
+	•	rows_scanned: İşlenmesi gereken satır sayısı.
+	•	cpu_tuple_cost: Her bir satırın işlenme CPU maliyeti.
+
+
+ANALYZE Komutu
+	
+  •	Ne İşe Yarar?
+  Tablo istatistiklerini toplayarak, sorgu planlayıcısının güncel veri dağılımına dayalı plan oluşturmasını sağlar.
+	•	İşleyiş:
+	•	Tablolardan rastgele örnekler alınır ve istatistiksel veriler (histogramlar, distinct değerler, ortalama genişlik vb.) hesaplanır.
+	•	Bu veriler, pg_statistic adlı sistem tablosuna kaydedilir.
+	
+  •	Kullanım Örnekleri:
+	•	Tüm veritabanı için:
+
+ANALYZE;
+
+
+	•	Belirli bir tablo veya sütun için:
+
+ANALYZE employees (department_id, salary);
+
+
+
+REINDEX Komutu
+	 
+  •	Ne İşe Yarar?
+   Mevcut indeksleri yeniden oluşturur, böylece indeks bozulmaları, aşırı şişme (bloat) ve performans düşüşleri giderilebilir.
+	•	Neden Kullanılır?
+	•	İndeks bozulması (örneğin, donanım hatası veya beklenmedik kapanmalar).
+	•	İndekslerin zamanla gereksiz boşluklarla şişmesi ve verimsiz hale gelmesi.
+	•	Performans iyileştirmesi sağlamak.
+	
+  •	Kullanım Örnekleri:
+	•	Belirli bir indeksi yeniden oluşturmak:
+
+REINDEX INDEX my_index;
+
+
+	•	Bir tabloya ait tüm indeksleri yeniden oluşturmak:
+
+REINDEX TABLE employees;
+
+
+	•	Tüm veritabanındaki indeksleri yeniden oluşturmak:
+
+REINDEX DATABASE my_database;
+
+
+
+3. Log Dosyaları
+
+Log Dosyalarının Temel İşlevleri
+	
+  •	Olay Kaydı:
+Sistemin veya uygulamanın çalışma sırasında meydana gelen hataları, uyarıları, bilgi mesajlarını ve performans istatistiklerini kaydeder.
+
+  •	Hata Ayıklama ve Sorun Giderme:
+Hata, uyarı veya beklenmeyen davranışların nedenini belirlemede kullanılır.
+	
+  •	Performans ve Güvenlik İzleme:
+Sorgu süreleri, kaynak kullanımı, güvenlik girişimleri gibi bilgilerle sistem sağlığı ve güvenlik denetimi yapılır.
+
+PostgreSQL Log Yapılandırması
+	•	Önemli Parametreler:
+	•	logging_collector: Logların dosya olarak toplanmasını sağlar.
+	•	log_directory, log_filename: Log dosyalarının kaydedileceği dizin ve dosya adını belirler.
+	•	log_min_messages: Hangi seviye altındaki mesajların loglanacağını ayarlar (örneğin, WARNING veya ERROR).
+	•	log_line_prefix: Her log satırına eklenen ön ek bilgileri (zaman damgası, PID, kullanıcı, veritabanı) belirler.
+	
+•	Örnek Ayar:
+
+logging_collector = on
+log_directory = 'pg_log'
+log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+log_min_messages = warning
+log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d '
+
+
+	•	Log Rotasyonu ve Güvenlik:
+Log dosyalarının boyutu büyüdükçe, belirli aralıklarla rotasyon ve arşivleme yapılır; dosyalara erişim izinleri dikkatlice ayarlanmalıdır.
+
+
+4. Veri Tabanı Rutin İşlemleri ve Yönetim
+
+Düzenli Bakım İşlemleri
+	•	VACUUM / AUTOVACUUM:
+Tablolardaki ölü satırları temizleyerek disk alanını geri kazanır ve performansı artırır.
+	•	ANALYZE:
+Tablo istatistiklerini güncelleyerek sorgu planlayıcısının doğru plan oluşturmasını sağlar.
+	•	REINDEX:
+İndeksleri yeniden oluşturarak, bozulmaları ve bloat (şişme) problemlerini giderir.
+
+Yedekleme ve Kurtarma
+	•	Yedekleme:
+Düzenli yedek alarak veri kaybı riskini minimize edin.
+Tam yedekleme ve artımlı yedekleme stratejileri planlanmalı.
+	•	Geri Yükleme:
+Yedeklerin düzenli test edilmesi, acil durumlarda sorunsuz kurtarma sağlar.
+
+Performans İzleme ve Optimizasyon
+	•	Sorgu Planları:
+EXPLAIN/EXPLAIN ANALYZE ile sorgu planlarını inceleyin, darboğazları belirleyin.
+	•	İndeks Yönetimi:
+Doğru indeks stratejileri belirleyin, gereksiz indeksleri kaldırıp verimli indeksler oluşturun.
+	•	Log Dosyası Analizi:
+Logları düzenli kontrol ederek, hata, uyarı ve performans verilerini değerlendirin.
+
+Güvenlik ve Denetim
+	•	Erişim Kontrolleri:
+Kullanıcı ve rol yönetimi ile kimlerin neye eriştiğini kontrol altında tutun.
+	•	Denetim Logları:
+Kritik işlemler, erişim girişimleri ve güvenlik olayları düzenli olarak loglanmalı ve incelenmelidir.
+	•	Yama ve Güncellemeler:
+Sistem güncellemeleri ve güvenlik yamaları, bilinen açıkların kapatılması için düzenli uygulanmalıdır.
+
+Otomasyon ve İzleme Araçları
+	•	Otomasyon:
+Bakım görevlerini (VACUUM, ANALYZE, yedekleme vb.) otomatikleştirin.
+	•	İzleme Sistemleri:
+Anlık sistem durumu, kaynak kullanımı ve yavaş sorguları izleyen araçlar ve uyarı mekanizmaları kullanın.
