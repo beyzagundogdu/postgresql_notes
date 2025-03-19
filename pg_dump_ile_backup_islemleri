@@ -1,0 +1,175 @@
+1.Yedeklemenin Önemi
+
+PostgreSQL, verileri güvenli ve tutarlı bir şekilde yönetmek için kullanılan güçlü bir ilişkisel veritabanı yönetim sistemidir. 
+Ancak beklenmedik durumlarda (donanım arızası, insan hatası, siber saldırılar vb.) oluşabilecek veri kayıplarını önlemek için düzenli yedekleme yapmak hayati önem taşır. 
+
+PostgreSQL ekosisteminde en yaygın kullanılan yedekleme araçları şunlardır:
+	•	pg_dump: Belirli bir veritabanını mantıksal (logical) formatta yedekler.
+	•	pg_dumpall: Bir PostgreSQL sunucusundaki tüm veritabanlarını (ve global nesneleri) tek bir seferde yedekler.
+
+Bu araçlarla alınan yedeklerinizi sıkıştırılmış (örneğin .zip veya .gz) formatlarda saklayarak disk alanından tasarruf edebilir, daha kolay arşivleyebilirsiniz. 
+Felaket kurtarma (disaster recovery) veya farklı bir sunucuya geçiş (migration) gibi durumlarda da bu yedekler, kısa sürede sisteminizi yeniden kurmanızı sağlar.
+
+
+2. pg_dump
+
+2.1. pg_dump Nedir?
+	•	pg_dump, PostgreSQL’de tek bir veritabanını yedeklemek için kullanılan komut satırı aracıdır.
+	•	Yedekleme işlemi “mantıksal” (logical) şekilde yapılır; yani tablolar, satırlar, ilişkiler, şema bilgileri SQL komutları (ya da özel formatlarda) kaydedilir.
+
+2.2. Neden pg_dump Kullanılır?
+	
+  1.	Veri Kaybını Engellemek
+Donanım arızası, tabloların yanlışlıkla silinmesi veya bozulması gibi durumlarda, elinizde güncel bir pg_dump yedeği varsa verilerinizi büyük oranda kurtarabilirsiniz.
+	2.	Tek Veritabanı Taşıma veya Kopyalama
+Sadece belli bir veritabanını başka bir sunucuya aktarmak veya yedeklemek istediğinizde idealdir.
+	3.	Sürüm Yükseltmeleri
+PostgreSQL’in yeni bir sürümüne geçerken, eski sürümdeki veriyi pg_dump ile alıp yeni sürümde pg_restore veya psql ile geri yüklemek, yaygın bir yöntemdir.
+	4.	Esneklik ve İnceleme
+	•	Plain text (düz metin) formatında aldığınız yedek dosyasını herhangi bir metin editörüyle inceleyebilirsiniz.
+	•	Belirli tabloları veya belirli bir şemayı yedeklemeniz gerekiyorsa, uygun parametrelerle (-t, -n) daha özelleştirilmiş yedekler alabilirsiniz.
+
+2.3. pg_dump Komutunun Temel Kullanımı
+
+pg_dump -U kullanici_adi -h sunucu_adresi -p 5432 veritabani_adi > yedek.sql
+
+	•	-U: PostgreSQL kullanıcısı (örneğin postgres veya ilgili DB kullanıcısı)
+	•	-h: Sunucu adresi (varsayılan localhost)
+	•	-p: Port (varsayılan 5432)
+	•	veritabani_adi: Yedeği alınacak veritabanının ismi
+
+Daha sonra bu .sql dosyasını geri yüklemek için:
+
+psql -U kullanici_adi -d hedef_veritabani -f yedek.sql
+
+2.4. Yedek Formatları
+	1.	Plain Text (Düz Metin) Formatı
+	•	Okunabilir, direkt psql ile geri yüklenir.
+	•	Boyutu büyük olabilir, geri yükleme hızı daha düşük olabilir.
+	2.	Özel (Custom) Format (-Fc)
+
+pg_dump -U kullanici_adi -Fc veritabani_adi > yedek.dump
+
+	•	pg_restore ile geri yüklenir.
+	•	Sıkıştırma ve tabloları/şemaları seçme imkanı sunar.
+	•	Paralel restore özelliği vardır.
+
+	3.	Dizin (Directory) Format (-Fd)
+	•	Bir dizin içinde birden çok dosya oluşturur.
+	•	Büyük veritabanları için paralel yedek ve restore imkanı sağlar.
+
+2.5. Faydalı Parametreler
+	•	-t tablo_adi: Sadece belirli bir tabloyu yedekler.
+	•	-n schema_adi: Sadece belirli bir şemayı yedekler.
+	•	-j N: Paralel işlem sayısını belirtir (Directory formatında işe yarar).
+
+
+3. pg_dumpall
+
+3.1. pg_dumpall Nedir?
+	•	pg_dumpall, PostgreSQL sunucusundaki tüm veritabanlarını ve ayrıca global nesneleri (roller, tablespace tanımları, vb.) aynı anda yedeklemeye yarar.
+	•	Bunu, tek tek pg_dump komutları yerine, bir komutla alabileceğiniz bütünsel bir yedekleme olarak düşünebilirsiniz.
+
+3.2. Neden pg_dumpall Kullanılır?
+	
+  1.	Tek Seferde Tüm Sunucunun Yedeği
+Birden fazla veritabanınız varsa ve hepsini yedeklemek istiyorsanız, ayrıca kullanıcı/rol/tablespace gibi genel tanımların da saklanmasını istiyorsanız pg_dumpall en kolay yoldur.
+	2.	Global Nesnelerin de Yedeklenmesi
+pg_dump, veritabanının kendisini yedekler ama kullanıcı/rol, tablespace gibi sunucu düzeyindeki nesneleri kapsamaz. pg_dumpall ise bunları da içerir.
+	3.	Sunucuyu Birebir Kopyalama
+Farklı bir makineye veya ortama taşıma yaparken, tüm veritabanlarını ve global nesneleri tek bir dosya üzerinden geri yüklemek isterseniz idealdir.
+
+3.3. pg_dumpall Komutunun Temel Kullanımı
+
+pg_dumpall -U kullanici_adi > tum_sunucu_yedek.sql
+
+	•	Bu çıktı, düz metin (plain text) formatında SQL komutlarından oluşan bir dosyadır.
+	•	İçinde her bir veritabanının CREATE DATABASE, CREATE TABLE, INSERT INTO … gibi komutları ve ayrıca roller/tablespace’lerle ilgili komutlar bulunur.
+
+Daha sonra şöyle geri yüklenir:
+
+psql -U kullanici_adi -f tum_sunucu_yedek.sql
+
+Eğer yeni bir PostgreSQL sunucusuna yükleme yapıyorsanız, -d parametresine gerek kalmadan psql -f ... ile global nesneler ve veritabanları oluşturulur.
+
+3.4. Örnek Yedekleme Senaryoları
+	•	Tüm Sunucuyu Geceleri Yedeklemek
+
+0 2 * * * /usr/bin/pg_dumpall -U postgres | gzip > /var/backups/all_db_$(date +\%Y\%m\%d).sql.gz
+
+
+	•	Yeni Sunucuya Taşıma
+	•	Alınan .sql.gz dosyasını yeni sunucuya aktarın.
+	•	gunzip ile açın ve ardından psql -f ile yükleyin:
+
+gunzip < all_db_20250101.sql.gz | psql -U postgres
+
+
+
+
+4. Zip’li (Sıkıştırılmış) Dosyalardan Geri Yükleme
+
+PostgreSQL yedeklerini .sql veya .dump gibi formatlarda aldıktan sonra, disk alanından tasarruf etmek için sıkça zip ya da gzip (.gz) ile sıkıştırırız.
+Geri yüklemek içinse temel mantık şöyledir:
+	1.	Arşivden Dosyayı Çıkartmak
+
+unzip backup.zip
+
+veya
+
+gunzip backup.sql.gz
+
+gibi komutlarla dosyanızı açarsınız. Ortaya ya backup.sql (plain text) ya da backup.dump (custom/directory format) çıkacaktır.
+
+	2.	Dosyayı Hangi Araçla Yükleyeceğinizi Belirlemek
+	•	Dosya backup.sql şeklindeyse düz metin (plain text) yedeğidir:
+
+psql -U kullanici_adi -d hedef_veritabani -f backup.sql
+
+
+	•	Dosya backup.dump (veya .backup) ise özel format (Custom) yedeğidir:
+
+pg_restore -U kullanici_adi -d hedef_veritabani backup.dump
+
+
+	•	Eğer zip içinde directory format yedeği varsa, klasör olarak açılır. Sonra o klasörün kendisini pg_restore ile belirtirsiniz.
+
+	3.	Zip Arşivinden Çıkarmadan da Yükleme (İsteğe Bağlı)
+Eğer zip dosyanızda tek bir .sql veya .dump varsa, unzip -p (içeriği standart çıktıya yazma) komutu ile arşivi açmadan doğrudan restore yapabilirsiniz:
+
+unzip -p backup.zip backup.sql | psql -U kullanici_adi -d hedef_veritabani
+
+veya
+
+unzip -p backup.zip backup.dump | pg_restore -U kullanici_adi -d hedef_veritabani
+
+
+
+4.1. Dikkat Edilmesi Gerekenler
+	•	Hedef Veritabanı Oluşturma: Geri yükleyeceğiniz veritabanı önceden yoksa createdb komutuyla oluşturmanız gerekebilir. pg_dumpall yedeğinde ise CREATE DATABASE komutları otomatik yer alır.
+	•	Kullanıcı Yetkileri: Yedeği geri yükleyen kullanıcının uygun haklara (CREATE, SUPERUSER vb.) sahip olması gerekir.
+	•	Sürüm Uyumluluğu: Genelde eski PostgreSQL sürümünden alınan yedekler, daha yeni sürümlere yüklenebilir. Tersi durumda bazı fonksiyon veya tip uyumsuzlukları çıkabilir.
+	•	Dosya Boyutu: Zip’li dosyalarda yeterli boş alan olup olmadığına dikkat edin. Çok büyük veritabanlarında .dump veya directory format artı gzip/dış sıkıştırma yöntemleri tercih edilir.
+
+
+5. Kısa Birleştirilmiş Senaryo Anlatımı
+	1.	Günlük Yedekleme
+	•	Sunucuda her gün 03:00’te tek bir veritabanını pg_dump -Fc ile sıkıştırılmış özel formatta yedekleyip, backup.dump dosyasını .zip veya .gz olarak saklayabilirsiniz.
+	•	Tüm sunucudaki veritabanlarını yedeklemek istiyorsanız, pg_dumpall kullanabilirsiniz.
+	2.	Arıza Durumu (Disaster Recovery)
+	•	Sunucu çökse de en güncel yedek .zip veya .gz dosyasında duruyorsa, bu dosyayı açar veya pipe’layarak (unzip -p backup.zip | pg_restore ...) hızla başka bir PostgreSQL sunucusuna yüklersiniz.
+	•	Veritabanınızı kaldığınız yerden devam ettirebilirsiniz.
+	3.	Sürüm Yükseltme (Upgrade)
+	•	Eski PostgreSQL sürümünde pg_dump veya pg_dumpall ile yedeğinizi alın.
+	•	Yeni PostgreSQL sürümünü kurduğunuz sistemde .sql (veya .dump) dosyasını psql veya pg_restore ile geri yükleyin.
+	•	Tüm verileriniz ve şemalarınız yeni sürümde çalışmaya hazır hale gelir.
+
+
+6. Sonuç
+	1.	pg_dump, PostgreSQL’de tek bir veritabanını yedekleyip geri yüklemek için kullanılır. Özelleştirilmiş tablolar, şemalar bazında ve çeşitli formatlarda (plain text, custom, directory) yedek alabilirsiniz.
+	2.	pg_dumpall, bir PostgreSQL sunucusundaki tüm veritabanlarını ve global nesneleri (roller, tablespace vb.) tek hamlede yedekleyip, tamamını geri yüklemek için en hızlı ve en kapsamlı yöntemdir.
+	3.	Yedek Dosyalarını Zip/Gzip ile Sıkıştırmak, özellikle büyük veritabanı dosyaları söz konusu olduğunda disk alanından tasarruf etmenizi sağlar.
+	4.	Restore (Geri Yükleme) İşlemleri, yedeğin formatına göre (psql ya da pg_restore) ve sıkıştırma biçimine göre (zip, gzip, vb.) küçük değişiklikler gerektirebilir.
+      Ancak temel mantık, dosyayı açmak veya pipe aracılığıyla komut satırına beslemektir.
+	5.	Düzenli Yedekleme ve Test her zaman önerilir. Felaket senaryolarına hazırlıklı olmak için yedeklerinizi sadece almakla kalmayın, belirli aralıklarla bu yedeklerin işe yarar olduğunu test edin
+      (test sunucusuna dönerek kontrol edin).
