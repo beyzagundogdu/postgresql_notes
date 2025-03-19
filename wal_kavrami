@@ -1,0 +1,191 @@
+
+1.	Shared Buffer Pool
+	•	Veritabanı, tabloları güncellerken (okuma/yazma) doğrudan diske yazmak yerine önce bu “shared buffer” (paylaşımlı ara bellek) alanını kullanır.
+	•	Neden böyle yapar? Disk erişimi pahalıdır, her küçük değişiklikte diski “fsync” ile güncellemek performansı öldürür. Bu nedenle önce bellek üzerinde tutulur.
+	
+2.	Database Cluster / Data Files
+	•	Bunlar, fiilen diskte duran tablo dosyalarıdır (farklı veritabanı dosyaları, index dosyaları vb.).
+	•	Gerçek veriler eninde sonunda buraya yazılır. Ancak bu anlık olmaz; “checkpoint” veya belli aralıklarla, ya da buffer dolunca vb. yazılır.
+	
+3.	WAL (Write-Ahead Log)
+	•	Tüm değişiklikler, tablo dosyalarına yazılmadan önce (Write-Ahead) bir log (kayıt) dosyasına eklenir. Bu log dosyaları da diskte “WAL segment” adını verdiğimiz parçalara kaydedilir.
+	•	“Önce log, sonra veri” mantığı, veri tutarlılığını sağlar: Herhangi bir kesinti/crash durumunda, WAL dosyalarını tekrar okuyarak (replay) commit olmuş değişiklikleri tablo dosyalarına yeniden uygularız.
+	•	Bu WAL dosyalarının “Log Sequence Number (LSN)” gibi sıralı kimlik numaraları vardır. Örneğin ilk işlem LSN_0, sonraki LSN_1 vb.
+
+4.	Checkpoint & REDO Point
+	•	Checkpoint: Veritabanı, belli aralıklarla (örneğin 5 dakikada bir veya belirlenmiş şartlarda) Shared Buffer’daki tüm güncellemeleri fiilen disk dosyalarına yazar 
+    ve “Artık buraya kadarki WAL kayıtlarını tekrar oynatmam gerekmeyecek,” dediği bir referans noktası oluşturur. Buna “checkpoint” denir.
+	•	REDO Point: Bu checkpoint’in yapıldığı veya en son “tam güvende” olduğumuz LSN noktasıdır. Crash olduğunda, recovery (toparlanma) bu noktadan başlar; 
+    checkpoint’ten sonra gelmiş WAL kayıtlarını sırasıyla tekrar uygular.
+
+	Basit Örnek:
+		•	Diyelim ki evinizde bir “Defter (WAL)” tutuyorsunuz. Alışveriş yaptıkça “Defter”e ekliyorsunuz: “2 ekmek aldım, 1 süt aldım…” Bu, WAL’e yazmak gibi.
+	•	Asıl “Aylık Gider Tablosu (Database Files)”nıza bu verileri anında işlemek zorunda değilsiniz. Bazen topluca işliyorsunuz (checkpoint).
+	•	Ama eğer elektrikler gitse, bilgisayarınız kapansa (crash), “Defter (WAL)” sizde olduğu sürece, kaldığınız yerden bakıp eksik işlenmiş kayıtları 
+    “Aylık Gider Tablosu”na yeniden uygulayabilirsiniz. Defterde yazan her satır ne alındıysa, tabloya tekrar eklenir.
+
+
+Adım Adım Senaryo (INSERT ve Commit Süreci)
+
+Diyelim ki TABLE_A adlı bir tablomuz var. İki satır ekleyeceğiz: “A” ve “B”.
+
+ 1.	(1) Adım – “INSERT INTO TABLE_A VALUES(‘A’); COMMIT;”
+	•	Uygulama komutu yolladı. Önce shared buffer’da tabloya eklenen yeni kayıt (A) tutuluyor.
+	•	Commit ederken PostgreSQL, bu değişikliği “WAL log kaydı” haline getiriyor (LSN_1 diyelim). Sonra da en azından commit bilgisiyle birlikte bu WAL kaydını diske yazıyor.
+	•	Diskteki tablo dosyası anında güncellenmiş olmak zorunda değil. Yeter ki WAL dosyasında bu kaydın olduğu satır diske fsync ile yazılmış olsun.
+	•	Commit tamamlanıyor ve kullanıcıya “işlemin başarıyla kaydedildiği” bilgisi dönüyor.
+	
+ 2.	(2) Adım – “INSERT INTO TABLE_A VALUES(‘B’); COMMIT;”
+	•	Aynı şekilde “B” için de shared buffer güncellenir.
+	•	Commit anında bu yeni değişiklik, WAL’e (LSN_2) yazılır ve diske fsync yapılır.
+	•	Yine tablo dosyası diskte henüz güncellenmemiş olabilir. Önemli değil, çünkü WAL bizde var.
+	
+ 3.	(3) Adım – “Crash”
+	•	Bir anda sistem çöktü diyelim. Elektrik kesintisi, sunucu restart vs.
+	•	Shared buffer’daki veriler kaybolmuş olabilir (RAM uçtu), ama WAL disk üzerindeydi ve commit edilmiş kayıtlar orada mevcut.
+	
+ 4.	Recovery (Tekrar Başlama)
+	•	Veritabanı yeniden açıldığında, en son “checkpoint” veya “REDO point” bilgisine bakar.
+	•	Checkpointten sonra yapılan tüm commit’leri WAL’den adım adım okuyup, tablo dosyalarını günceller. (Bu işleme “WAL replay” denir.)
+	•	Dolayısıyla “A” ve “B” diskteki tabloda henüz yoksa bile, WAL sayesinde kurtarılır ve tabloya yazılır.
+	•	Commit olmamış işlemler varsa (WAL kayıtlarında “commit” yoksa), onlar yok sayılır.
+
+
+Neden Bu Kadar Önemli?
+	•	Veri Kaybını Önlemek: Commit edilmiş hiçbir veri, buffer’dan disk dosyasına tam yazılmadan önce sistem çökse bile kaybolmaz. 
+    Çünkü commit anında WAL logu diske güvenli biçimde yazılmıştır.
+	•	Performans: Her INSERT/UPDATE/DELETE işleminde diskteki tablo dosyasını hemen güncellemek yerine, verileri buffer’da bekletmek büyük hız kazandırır. 
+    WAL’e yazmak nispeten daha hızlı, sıralı bir işlemdir.
+	•	Tutarlılık (ACID): WAL kaydı + checkpoint mekanizması sayesinde veritabanı “durable” (kalıcı), “atomic” (tam veya hiç), “consistency” (tutarlılık) ve 
+    “isolation” (izolasyon) gibi özelliklerini koruyabilir.
+
+
+Sonuç
+
+•	Veriyi önce WAL’e yazarak commit etmek, veri bütünlüğünü korumanın temel yolu.
+•	Veritabanı blokları (TABLE_A) bellek (shared buffer) üzerinde dururken, belirli aralıklarla (checkpoint) diske yazılıyor.
+•	Bir sistem çökmesi yaşansa bile, diskteki WAL tekrar okunarak en son “commit” edilmiş işlemler “sanki az önce yapılmış gibi” tablo dosyalarına yeniden ekleniyor (replay). 
+Böylece veri kaybı ve tutarsızlık önlenmiş oluyor.
+
+
+
+ “Write-Ahead Logging” Mantığı
+	•	Adım 1: Değişikliği (INSERT/UPDATE/DELETE vb.) tablo bloklarına yaz (RAM’deki shared buffer).
+	•	Adım 2: Aynı değişikliği, WAL buffer aracılığıyla WAL segment dosyasına kaydet (diske fsync).
+	•	Adım 3: WAL’e yazım tamamlanınca “commit” sinyali verilebilir.
+	•	Adım 4: Zamanla PostgreSQL, checkpoint veya background writer gibi mekanizmalarla buffer’daki blokları disk üzerinde asıl tablo dosyalarına yazar.
+	•	Adım 5: Olası çökme durumunda, WAL segment dosyalarını okuyarak eksik disk yazımlarını tamamlar.
+
+Avantaj:
+	•	Performans (sıralı yazma) + Veri bütünlüğü (commit edilmiş hiçbir veri kaybolmaz).
+
+Dezavantaj:
+	•	Ek depolama (“log” dosyaları), ve tekrar oynatma (replay) sırasında biraz zaman harcama.
+	•	Ancak modern veritabanlarında bu yöntem en yaygın ve güvenli uygulamadır.
+
+
+PostgreSQL’in postgresql.conf dosyasında, WAL (Write-Ahead Logging) ile ilgili ayarlar (parametreler) veritabanının performansı, dayanıklılığı (durability) ve 
+replikasyonu üzerinde önemli rol oynarlar.
+
+1) wal_level
+	•	Tanım: WAL kayıtlarının ne kadar detaylı tutulacağını belirler.
+	•	Değerler:
+	•	minimal: En az veriyi loglar (yalnızca crash recovery için gereken kayıtlar). Replikasyon veya PITR (Point-In-Time Recovery) için yetersizdir.
+	•	replica: Standby (hot standby) replikasyon yapmak için yeterli bilgiyi loglar. Çoğu “production” ortamında kullanılan standart ayar.
+	•	logical: Logical decoding (mantıksal replikasyon) gibi ek ayrıntıları da loglar.
+	•	Etkisi: Daha yüksek wal_level değerlerinde WAL boyutu artar, fakat replikasyon ve log-based değişiklik izleme gibi özellikler devreye girebilir.
+
+
+2) archive_mode, archive_command ve archive_timeout
+	•	archive_mode:
+	•	on veya off olabilir. WAL arşivlemeyi etkinleştirip etkinleştirmeyeceğinizi belirler.
+	•	Arşivleme, her WAL segmenti dolduğunda (ya da başka bir tetikleyiciyle) diskteki WAL segmentini güvenli bir ortama (ör. başka bir dizin ya da uzak sunucu) kopyalar.
+	•	archive_command:
+	•	Arşivlemenin nasıl yapılacağını belirten bir shell komutudur. Örn. cp %p /mnt/archive/%f veya scp %p backupserver:/archive/%f gibi.
+	•	%p WAL segmentinin tam yolunu, %f ise dosya adını ifade eder.
+	•	Arşivlemenin başarılı olması için komutun 0 (başarılı) olarak dönmesi gerekir.
+	•	archive_timeout:
+	•	Bir WAL segmenti dolmadan önce bile, belirli bir süre (saniye cinsinden) geçtiğinde o segmentin arşivlenmesi için bir tetikleyici oluşturur.
+	•	Özellikle düşük trafikli sistemlerde, uzun süre dolmayan WAL segmentlerinin çok geç arşivlenmesini önlemek için kullanılır.
+
+Bu ayarlar, Point-In-Time Recovery (PITR) ve WAL arşivleme senaryolarında önemlidir. Crash recovery dışında, geçmişe dönük incelemelerde veya standby kopyalar oluşturmakta kullanılırlar.
+
+
+3) wal_keep_size (Eskiden wal_keep_segments)
+	•	Tanım: Arşivlenmemiş WAL segmentlerinin diskte ne kadar tutulacağını kontrol eder.
+	•	Değer: MB cinsindendir (ör. wal_keep_size = 256).
+	•	Önemi: Replikasyon veya standby sunucuların geride kalması durumunda gereklidir; standby’ın eksik WAL segmentlerini ana sunucudan talep etmesi gerekebilir.
+   Yeterince WAL tutulmazsa standby koptuğunda yeniden senkronize olmak zorunda kalabilir.
+
+Önceki sürümlerde wal_keep_segments şeklindeydi, yani 16 MB’lık segment sayısı üzerinden bir belirleme yapılırdı. 
+PostgreSQL 13+ sürümlerinde wal_keep_size olarak MB bazında ayarlanıyor.
+
+
+4) wal_segment_size
+	•	Tanım: Tek bir WAL segment dosyasının boyutunu belirler.
+	•	Değer: 1 MB, 2 MB, 16 MB, 64 MB gibi derleme (build-time) sırasında belirlenir, sonradan değiştirmek için PostgreSQL’i yeniden inşa etmek gerekir.
+	•	Etkisi: Daha büyük segment boyutu, dosya sayısını azaltır ama dolana kadar olan verilmiş arşivlenme gecikebilir. Genelde varsayılan 16MB kullanılır.
+
+
+5) wal_buffers
+	•	Tanım: WAL kayıtlarını disk segmentine yazmadan önce bellek (shared memory) üzerinde tutulan buffer miktarını (sayfa cinsinden) belirler.
+	•	Önemi: Düşük ayarlanırsa yoğun WAL üreten sistemlerde sık disk yazımlarına yol açabilir, yüksek ayarlamak performansı iyileştirebilir.
+	•	Varsayılan: PostgreSQL otomatik ayarlıyor ancak yoğun veritabanı yükü altında el ile artırmak faydalı olabilir.
+
+
+6) synchronous_commit
+	•	Tanım: Transaction commit ederken WAL’in disk(ler)e nasıl ve ne zaman fsync edileceğini belirler.
+	•	Değerler:
+	•	on: Commit, WAL kaydı diske yazılıp onaylanana (fsync) kadar bekler (tam veri dayanıklılığı).
+	•	remote_write: Replikasyon kullanımında, WAL verisinin standby’a ulaşmasını ancak henüz standby diske yazmadan commit’i onaylar.
+	•	local: Yalnızca ana sunucunun diske yazmasını bekler, standby’ı beklemez.
+	•	off: WAL diske yazılmadan commit tamam olarak bildirilebilir (performans artar ama veri kaybı riski artar).
+	•	Etkisi: on en güvenlisidir; off ise çökme anında birkaç milisaniye veya daha fazla veri kaybına neden olabilir.
+
+
+7) full_page_writes
+	•	Tanım: Bir veri bloğunda ilk kez bir değişiklik yapılırken, o bloğun tamamını WAL’e yazma mekanizması.
+	•	Önemi: Kısmen güncellenmiş bir disk bloğunun (örneğin donanım arızası veya OS kesintisi sonucu) tutarsızlığa yol açmasını engeller.
+	•	Varsayılan: on. Çoğu zaman önerilen ayar budur.
+	•	Etkisi: Daha çok WAL hacmi, ama veri bütünlüğü için kritik.
+
+
+8) checkpoint_timeout ve checkpoint_completion_target
+	•	checkpoint_timeout: Ne kadar sıklıkla otomatik checkpoint yapılacağını belirler (varsayılan 5 dakika).
+	•	checkpoint_completion_target: Checkpoint işleminin, bu timeout süresinin ne kadarlık bölümünde “yavaş ve kademeli” yapılacağını gösterir (varsayılan 0.5).
+	•	Etkisi:
+	•	Çok sık checkpoint = daha fazla disk yazma yükü, ama crash recovery daha hızlı olur.
+	•	Çok seyrek checkpoint = daha uzun crash recovery süresi, ama normal zamanda daha az I/O yükü.
+
+
+9) wal_compression ve wal_compression_method
+	•	wal_compression: on/off olarak ayarlanır. WAL kayıtlarındaki boşlukları sıkıştırabilir.
+	•	wal_compression_method: gzip, lz4, zstd gibi desteklenen sıkıştırma yöntemlerini seçmeye yarar (yeni sürümlerde).
+	•	Etkisi: WAL boyutu düşebilir, ancak CPU kullanımı artabilir. Veri hacmi büyük ve disk bant genişliği kritikse faydalı olabilir.
+
+
+10) max_wal_senders / max_replication_slots (Replikasyon İlişkili)
+	•	max_wal_senders: Aynı anda kaç replikasyon (standby) oturumunun WAL gönderimi alabileceğini belirler. Replikasyon için bu değerin en az 1 veya standby sayısı kadar olması gerekir.
+	•	max_replication_slots: PostgreSQL’in hangi sayıda replikasyon slotuna izin vereceğini belirler. Her standby kendi slotu ile WAL tüketebilir (slot, WAL silinmeden bekletir).
+
+Bu ayarlar, streaming replication veya logical replication senaryolarında kritik öneme sahiptir.
+
+WAL kayıtları yönetimi –yani doğru ayarların belirlenmesi, arşivleme stratejileri, replikasyon konfigürasyonu, checkpoint dengesi vb.–
+	•	Hem yüksek performans
+	•	Hem veri bütünlüğü
+	•	Hem felaket kurtarma
+	•	Hem de kanuni/düzenleyici gereksinimlerin karşılanması açısından hayati bir rol oynar.
+
+Bir veritabanı yöneticisinin (DBA) görevi, bu WAL yönetimi parçalarını işletmenin ihtiyaçları, yük profili ve kaynakları ile optimize etmektir. 
+Bu yüzden “WAL kayıtları yönetimi” veritabanı yönetiminin belki de en kritik bileşenlerinden biridir.
+
+
+
+
+
+
+
+
+
+
+
