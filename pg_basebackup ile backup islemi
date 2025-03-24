@@ -1,0 +1,205 @@
+1) tar -cf backup.tar /database/data/ Komutu Nedir?
+
+	tar -cf backup.tar /database/data/ komutu, Linux/Unix sistemlerinde kullanılan tar aracılığıyla /database/data/ dizinini (ve içindeki dosya/alt dizinleri) alıp, sıkıştırılmamış bir TAR arşiv dosyası oluşturur.
+  Bu komutu adım adım inceleyelim:
+	
+  1.	tar:
+	•	Linux/Unix türevi işletim sistemlerinde sıkça kullanılan bir arşivleme programıdır. Esas görevi dosyaları tek bir paket (arşiv) haline getirmektir. 
+  Böylece onları daha kolay taşımak, yedeklemek veya dağıtmak mümkün olur. Tar aslında sıkıştırma yapmaz, yalnızca birleştirme (arşivleme) işlevi görür.
+	
+  2.	-c (create) parametresi:
+	•	tar komutunda yeni bir arşiv oluştur anlamına gelir. Bu parametre kullanıldığında, belirtilen dosya/dizinleri alıp bir arşiv dosyasına dönüştürür.
+
+  3.	-f parametresi:
+	•	-f, komuta arşiv dosyası ismini belirtmek için kullanılır. -f backup.tar demek, çıkacak arşiv dosyasının backup.tar olması gerektiğini söyler.
+	
+  4.	backup.tar:
+	•	Oluşturulacak arşiv dosyasının adıdır. Çoğunlukla .tar uzantısı verilir. Bu uzantı, dosyanın TAR formatında (sıkıştırılmamış) olduğu anlamına gelir.
+
+  5.	/database/data/:
+	•	Arşivlenecek kaynak klasörün tam yoludur. Bu komut, /database/data/ dizini içindeki tüm dosyaları ve varsa alt klasörleri dahil, tamamını backup.tar içine ekleyecektir.
+
+	Özetle
+		•	Komut, /database/data dizinini alarak tek bir sıkıştırılmamış arşiv (TAR) dosyası üretir.
+	•	Ortaya çıkan dosya ismi backup.tar olur.
+	•	Eğer ek sıkıştırma da isteseydiniz (örneğin gzip veya bzip2 kullanarak), buna benzer şekilde tar -czf backup.tar.gz /database/data/ ya da tar -cjf backup.tar.bz2 /database/data/ gibi komutları tercih edebilirdiniz. Buradaki z gzip, j ise bzip2 sıkıştırmasını belirtir.
+
+ Komutu uyguladıktan sonra, ls -l gibi bir komutla oluşan backup.tar dosyasını görebilirsiniz.
+
+
+2) tar -cf backup.tar /database/data/ Komutunun Avantajları ve Önemi
+
+	Bir klasörü (veya dizini) TAR formatında bir dosya haline getirmenin, yani örnekteki gibi tar -cf backup.tar /database/data/ komutunu kullanmanın pek çok avantajı ve önemi vardır:
+	
+  1.	Verilerin Yedeklenmesi (Backup)
+	•	tar ile aldığınız arşiv dosyası sayesinde belirli bir dizini olduğu gibi saklayabilir ve gerektiğinde geri yükleyebilirsiniz. Veri kaybı yaşanmaması ve geri dönülebilir bir kopya olması açısından kritik önem taşır.
+	
+  2.	Dosya ve Dizinlerin Tek Pakette Toplanması
+	•	Birden fazla dosya veya alt klasör içeren bir dizini, tek tek uğraşmak yerine tek bir .tar dosyası olarak paketleyebilirsiniz. Bu, dosyaları farklı bir ortama (sunucuya, depolama aygıtına vb.) taşımayı veya paylaşmayı kolaylaştırır.
+
+  3.	Basit ve Yaygın Kullanım
+	•	tar, Linux/Unix dünyasında en yaygın kullanılan arşivleme yöntemlerinden biridir. Hem basit komutlarla kontrol edilebilir hem de çoğu sistemde ön tanımlı olarak bulunur. 
+  Ek bir kurulum gerekmemesi ve yaygın bir standart olması nedeniyle, birçok farklı sistem ve araç tar dosyalarıyla sorunsuz çalışır.
+
+  4.	Versiyonlama (Sürüm Kontrolü) ve Dış Yedekler
+	•	Özellikle sistem yöneticileri ve geliştiriciler, yedekleri düzenli aralıklarla tar dosyaları olarak saklar. Örneğin günlük, haftalık veya aylık alınan .tar dosyalarıyla, sistemin belirli tarihlerdeki hâli korunabilir. 
+  Bu sayede belirli bir sürüme geri dönmek veya arşivden eski bir yapı çıkarmak mümkündür.
+
+  5.	Platform Bağımsızlığı
+	•	.tar formatı, çoğu işletim sisteminde (örn. Linux, macOS, hatta Windows üzerinde ek araçlarla) kolayca açılıp kullanılabilir. Bu platform bağımsızlık, proje dosyalarınızı veya sistem yedeklerinizi taşınabilir kılar.
+
+  6.	Opsiyonel Sıkıştırma İmkânı
+	•	tar başlı başına sıkıştırma yapmaz. Ancak gzip (-z) veya bzip2 (-j) gibi ek parametrelerle .tar.gz veya .tar.bz2 şeklinde sıkıştırılmış arşivler oluşturmak mümkündür. 
+  Bu da disk alanından tasarruf etmenizi, dosyanın internet üzerinden daha hızlı transfer edilmesini sağlar.
+
+  7.	Basit Geri Yükleme (Restoration)
+	•	Herhangi bir tar dosyasından verileri çıkarmak için yine tar komutunu kullanmanız yeterlidir. Sıkıştırılmış ve arşivlenmiş bir klasörü, tek komutla eski konumuna veya başka bir dizine açıp kullanmaya devam edebilirsiniz.
+
+	Özetle, tar -cf backup.tar /database/data/ komutuyla bir dizini yedeklemek, arşiv haline getirmek, kolay taşınabilir bir formatta saklamak ve gerektiğinde içeriğini aynı şekilde geri yüklemek çok pratik ve güvenli bir yöntemdir.
+
+
+3) “tar” ile Yedek Alırken Veritabanı Servisini Kapatmalı mıyız?
+
+
+	Bu durum, veritabanı türüne ve alacağınız yedeğin nasıl kullanılacağına bağlıdır. Genel prensip olarak:
+		
+  •	Eğer dosya tabanlı (fiziksel) bir yedek almak istiyorsanız ve veritabanı o sırada aktif olarak yazma/okuma işlemi yapıyorsa, yedek tutarsız (inconsistent) olabilir. 
+   Çünkü veritabanı motoru henüz diske tam olarak yazmadığı veya kısmen güncellediği blokları tutuyor olabilir. Bu yüzden, en sağlıklı yöntem veritabanı servislerini kapatmak 
+   (veya en azından “read-only” modda tutmak) ya da veritabanının desteklediği “hot backup” modunu etkinleştirerek yedek almaktır.
+	•	Birçok veritabanı (ör. MySQL, PostgreSQL) normalde dosya sistemi düzeyinde kopyalama (tar vs.) ile direkt yedek almayı önermez. Bunun yerine kendi resmî yedekleme araçlarını 
+  (ör. mysqldump, pg_dump) veya “online/hot backup” yaklaşımlarını kullanmak gerekir. Çünkü bu araçlar, veritabanının tutarlı bir anlık görüntüsünü (snapshot) alarak çalışır.
+	•	Eğer veritabanınızı durdurup (service stop) /database/data/ klasörünü tar’lamak isterseniz, dosyaların anlık durumu garanti altına alındığından, tutarlı bir yedek elde edersiniz. 
+  Daha sonra veritabanını yeniden başlattığınızda, aynı dosyaları geri yükleyerek sorunsuz devam etme şansınız yükselir.
+	
+  •	Eğer durdurmadan arşivleme yaparsanız, olası riskler şunlardır:
+	•	Yedek alma işlemi sırasında dosyalar kısmen değişmiş veya veritabanı yarım kalmış yazma işlemlerinde bulunmuş olabilir.
+	•	Geri yüklediğinizde, veritabanı tutarsızlık (corruption) uyarıları verebilir veya normal açılmayabilir.
+	•	Elbette bazı veritabanı motorları (örn. PostgreSQL’de “Continuous Archiving” veya MySQL’de “Binary Log” kullanımı vb.) ek önlemlerle verilerinizi geri getirmeye izin verebilir; ancak bu daha karmaşık bir süreçtir.
+
+	Kısacası:
+		1.	En garantili yöntem: Veritabanı servislerini durdurup /database/data/ dizinini tar’lamak.
+	2.	Alternatif: Veritabanı motorunun kendi “hot backup” özelliğini veya “dump” (logical backup) aracını kullanmak.
+	3.	Servis kapatılmadan doğrudan dosyaları tar’lamak, aktif kullanılan bir sistemde tutarsızlık riski barındırır.
+
+	Dolayısıyla “veri tabanı servislerini kapatmamız mı gerekiyor?” sorusunun cevabı büyük oranda evet, tutarlı bir yedek istiyorsanız kapatmalısınız 
+  (veya o veritabanının sağladığı özel bir online backup yöntemini tercih etmelisiniz).
+
+
+4) test ! -f /mnt/server/archivedir/0000001 && cp pg_wal/0000001 /mnt/server/archivedir/0000001 Komutu
+
+
+	Bu satır bir shell (Bash) komutudur ve aşağıdaki işlemi yapar:		1.	test ! -f /mnt/server/archivedir/0000001
+	•	test komutu Bash içerisinde bir koşul (condition) kontrolü yapar. Burada -f ile “Bu isimde normal bir dosya var mı?” diye sorguluyor.
+	•	! işareti, koşulun tersini ifade eder. Yani dosya yoksa (-f negatiflenmiş durumda), koşul doğru (true) kabul edilir.
+	2.	&&
+	•	Mantıksal VE (logical AND) anlamına gelir. Yani, soldaki komut başarılı (true) dönerse, sağdaki komut çalışır.
+	3.	cp pg_wal/0000001 /mnt/server/archivedir/0000001
+	•	Soldaki koşul doğru ise (0000001 adındaki dosya, /mnt/server/archivedir/ dizininde yoksa), bu dosya kopyalanır.
+	•	Eğer dosya zaten varsa, bu komut çalışmaz (kopyalama yapılmaz).
+
+	Temel Mantık
+
+	Komut, /mnt/server/archivedir/0000001 isimli dosyanın var olup olmadığını kontrol eder.
+		•	Yoksa → cp ile pg_wal/0000001 kaynağından kopyalar.
+	•	Varsa → Hiçbir şey yapmaz.
+
+	Bu tarz bir komut genellikle veritabanı (özellikle PostgreSQL) WAL (Write-Ahead Log) arşivlemesi gibi senaryolarda kullanılır. 
+  Amacı, aynı dosyanın arşive birden fazla kopyalanmasını engellemektir. Yani dosya bir kez arşive yazılmışsa, tekrar yazmaya gerek kalmaz.
+
+
+5) pg_basebackup -D backup1 -Ft -z -P Komutu
+
+	pg_basebackup komutu, PostgreSQL veritabanının tüm veritabanı cluster’ını (yani tüm verileri, konfigürasyonları ve gerekli ek dosyaları) yedeklemek için kullanılan bir araçtır. 
+ Aşağıdaki seçenekler, ne tür bir yedek alınacağını ve nasıl saklanacağını belirler:		•	-D backup1: Oluşturulacak yedek dosyalarının nereye kaydedileceğini belirtir. 
+ Burada backup1 adında bir klasör veya yol verilmektedir.
+
+  •	Komut başarılı bir şekilde bittiğinde, backup1 klasörünün içinde yedek dosyalarınız bulunur.
+	•	-Ft: Yedeğin formatını ayarlar. Burada t, TAR formatında yedek oluşturmak anlamına gelir. Yani yedek dosyaları .tar uzantısıyla veya birden fazla .tar parçası olarak oluşacaktır.
+	•	-z: Oluşturulacak yedeği aynı zamanda gzip yöntemiyle sıkıştırır. Bu sayede disk alanından tasarruf sağlarsınız.
+	•	-P: Yedekleme işlemi sırasında komut satırında ilerleme (progress) gösterilmesini sağlar. Böylece yedeklemenin ne kadarının tamamlandığını gözlemleyebilirsiniz.
+
+	Özet Olarak
+		•	pg_basebackup, PostgreSQL veritabanını bütün halinde yedekleyebilen bir araçtır.
+	•	-D backup1, yedeğin nereye kaydedileceğini tanımlar.
+	•	-Ft, yedeği .tar formatında oluşturur.
+	•	-z, tar dosyalarını ek olarak gzip ile sıkıştırır.
+	•	-P, yedeklemenin ilerlemesini (yüzde kaçta olduğu gibi) gösterir.
+
+	Bu komut başarıyla çalıştığında backup1 adlı klasör içerisinde sıkıştırılmış tar arşiv dosyaları oluşur ve bunlar PostgreSQL veritabanınızın tam fiziksel yedeğidir.
+
+
+6) pg_basebackup Somut Örneği ve Alternatif Yöntemler
+
+
+	1) Somut Örnek Senaryosu
+
+	Diyelim ki:
+		•	Sunucunuzda PostgreSQL çalışıyor ve veritabanı sunucusunun varsayılan portu olan 5432’yi kullanıyorsunuz.
+	•	Kullanıcı adınız postgres (yönetici kullanıcı).
+	•	Sunucuya localhost üzerinden bağlantı kurabilirsiniz (yani PostgreSQL aynı makinede koşuyor).
+
+	Bu durumda, aşağıdaki komutla bir yedek almak istediğinizi düşünelim:	Burada:
+		1.	-h localhost: Bağlanılacak host (sunucu) adresidir.
+	2.	-p 5432: PostgreSQL’in kullandığı port numarasıdır.
+	3.	-U postgres: Yedekleme için kullanılacak PostgreSQL kullanıcısı.
+	4.	-D /home/postgres_backups/backup1: Yedek dosyalarının nereye (hangi klasöre) kaydedileceğini gösterir.
+	5.	-Ft: Çıktının TAR formatında olmasını sağlar. (Her tablo alanını/tablespace’i ayrı bir tar dosyasında alabilir.)
+	6.	-z: Oluşan tar dosyalarını gzip yöntemini kullanarak sıkıştırır. Bu, disk alanını daha verimli kullanmanızı sağlar.
+	7.	-P: İlerleme (progress) bilgisini gösterir. Terminalde, % kaçının tamamlandığını görebilirsiniz.
+
+	Komut çalıştığında PostgreSQL server’ına bağlanacak, online (yani “hot backup”) bir şekilde tüm cluster’ın (veritabanlarının) fiziksel kopyasını alacaktır.
+  İşlem bittiğinde, /home/postgres_backups/backup1 dizini içinde .tar.gz uzantılı (veya .tar + sıkıştırma olduğu için .tar.gz benzeri) dosyalar görebilirsiniz.
+
+	NOT:
+		•	Bu komutun sorunsuz çalışması için PostgreSQL ayarlarında pg_hba.conf veya benzeri yapılandırmalarda replication rolünün veya trust/md5 gibi erişimlerin ayarlanmış olması gerekebilir.
+	•	Kullanıcı postgres’in replication hakkına sahip olması lazım. Aksi halde “permission denied” gibi hatalar alabilirsiniz.	
+
+
+	2) Sonuçta Ne Oluşur?
+
+	Örneğin, /home/postgres_backups/backup1 klasörü altında aşağıdakilere benzer dosyalar oluşabilir:
+		•	base.tar.gz
+	•	pg_wal.tar.gz
+	•	Bazı PostgreSQL sürümlerinde farklı tablespace’lerin her biri için ayrı .tar.gz dosyaları (örneğin pg_tblspc.tar.gz gibi)
+
+	Bu dosyalar birlikte tam bir fiziksel yedeği temsil eder. İleride bu yedekten geri dönmek istediğinizde (restore işlemi), PostgreSQL instance’ını durdurur, 
+  data dizininizi boşaltır veya yeniden adlandırır, sonra bu .tar.gz dosyalarını açar (extract) ve bu verileri PostgreSQL’in data dizinine yerleştirirsiniz. 
+  Ardından PostgreSQL’i tekrar başlatırsınız.	
+
+
+
+	3) Neden Bu Yöntem?
+		•	Fiziksel Yedek: Tüm veritabanı dosyalarını doğrudan PostgreSQL motorunun “anlık görüntüsü” (snapshot) şeklinde alır. Veritabanı kapatılmadan (hot backup) alınabilir.
+	•	Tutarlılık: pg_basebackup arka planda, gereken WAL (Write-Ahead Log) dosyalarını da alarak tutarlı bir nokta sağlar. Yani yedek geri yüklendiğinde veri bütünlüğünü korumuş olursunuz.
+	•	Kolay Kurulum: PostgreSQL ile birlikte gelen bir araçtır (ekstra bir kurulum gerektirmez).	
+
+	4) Alternatif Yollar
+
+	PostgreSQL’de yedek almak için farklı yöntemler de vardır:
+	
+ 1.	pg_dump / pg_dumpall (Mantıksal Yedek)
+	•	Bunlar da PostgreSQL’in resmî araçlarıdır ama mantıksal (metin tabanlı veya özel format) yedek oluştururlar.
+	•	Avantajı: Tek tek tablo veya şema bazında (daha ince ayarla) yedek alma ve geri yükleme yapabilirsiniz.
+	•	Dezavantajı: Çok büyük veritabanlarında geri yükleme süresi uzun sürebilir; ayrıca schema yapıları script olarak saklanır.
+
+ 2.	Dosya Sistemi Tabanlı Yedek (Tar vs.)
+	•	Veritabanı klasörünü (örneğin /var/lib/postgresql/data) doğrudan tar komutu ile yedekleyebilirsiniz, ancak bu genellikle veritabanı kapatıldığında veya “backup mod” aktifleştirildiğinde yapılır. 
+  Aksi halde tutarsızlık (inconsistent data) riski var.
+
+ 3.	3. Parti Yedekleme Araçları
+	•	Örneğin, pgBackRest, Barman gibi araçlar daha gelişmiş ve otomatik/planlı yedeklemeler için kullanılır. Bu araçlar da PostgreSQL’in pg_basebackup mantığına benzer, 
+  ancak ek özellikler (inkremental yedek, sıkıştırma, şifreleme, planlama, otomatik geri yükleme) sunarlar.
+
+ 4.	Streaming Replication + Yedekleme
+	•	PostgreSQL’i birden çok sunucuya kopyalayıp (replica) sonra bu replikalardan biri üzerinde düzenli pg_basebackup almak, aktif sistemi etkilemeden yedekleme yapmanızı sağlar.	
+
+
+	5) Öğrenilmesi Gereken Önemli Detaylar
+		•	WAL Segment Arşivleme (Archive Mode)
+	•	PostgreSQL’in archive_mode ve archive_command ayarlarını etkinleştirerek, WAL dosyalarını düzenli arşivleyebilirsiniz. Böylece pg_basebackup ile aldığınız ana yedekten sonra, aradaki değişiklikleri (WAL) de saklayarak belirli bir zamana geri dönme (point-in-time recovery) yapabilirsiniz.
+	•	Geri Yükleme (Restore)
+	•	Bir fiziksel yedeği geri yüklerken, recovery.conf veya PostgreSQL 12 ve üstü için postgresql.conf içinde restore_command parametresiyle WAL dosyalarını nereye koyduğunuzu belirtebilirsiniz.
+	•	Point-in-time recovery (PITR) gibi senaryolarda, eski haline (örneğin iki gün önceki duruma) dönmek isterseniz, recovery_target_time ya da recovery_target_xid gibi parametrelerle belirli bir zaman noktasına kadar WAL kayıtlarını işletebilirsiniz.
+	•	Yetkiler ve Erişim
+	•	pg_basebackup komutunu kullanacak kullanıcının “replication” hakkına sahip olması gerekir. Bunun için pg_hba.conf ve postgresql.conf ayarlarında replication konfigürasyonu yapılmalıdır.	
+
