@@ -1,0 +1,251 @@
+1. İşletim Sistemlerinin Katmanları
+
+İşletim sistemlerini, bir binanın katları gibi düşünebiliriz:
+	
+  1.	Donanım (Hardware) Katmanı
+	•	Bu katmanı, binanın temel katı olarak görebilirsiniz. İşlemci (CPU), bellek (RAM), sabit disk (HDD/SSD), ekran, klavye, fare gibi fiziksel bileşenleri içerir.
+	•	İşletim sistemi ve diğer yazılımlar, bu donanıma erişmek için aradaki katmanları kullanır.
+	
+  2.	Çekirdek (Kernel) Katmanı
+	•	Binanın yönetim katı gibi düşünülebilir. Donanımla doğrudan etkileşime geçer. Bellek yönetimi, işlem yönetimi, dosya sistemi, sürücü yönetimi gibi temel işlevleri üstlenir.
+	•	Uygulamalar donanımı doğrudan kullanmak yerine, çekirdeğe isteklerini iletir.
+	 
+  3.	Sistem Çağrıları (System Calls) ve Sürücüler (Drivers) Katmanı
+	•	Çekirdek ile uygulamalar arasında köprü rolü oynar.
+	•	Sürücüler, donanımın nasıl çalıştırılacağını çekirdeğe anlatır. Sistem çağrıları da uygulamaların çekirdek hizmetlerine erişmesini sağlar.
+	
+  4.	Sistem Yazılımları ve Yardımcı Programlar (System Utilities) Katmanı
+	•	İşletim sistemiyle gelen temel araçlar, komut satırı uygulamaları, yapılandırma uygulamaları, denetim masası vb. araçları içerir.
+	•	Çekirdeğin sağladığı temel hizmetler, bu katmandaki yardımcı programlar aracılığıyla yönetilir.
+
+  5.	Kullanıcı Uygulamaları (User Applications) Katmanı
+	•	Binanın en üst katındaki ofisler/dükkanlar gibi düşünün. Tarayıcılar, metin editörleri, oyunlar vb. son kullanıcı uygulamaları burada çalışır.
+	•	Bu uygulamalar, doğrudan donanıma erişmek yerine çekirdek ve sistem araçları üzerinden hizmet alırlar.
+
+
+2. Linux İşletim Sistemi
+
+2.1. Özgür ve Açık Kaynak
+	•	Linux, çekirdeği (kernel) açık kaynak olan, özgürce dağıtılabilen bir işletim sistemi ailesidir.
+	•	Kaynak kodu herkes tarafından görülebilir, değiştirilebilir, katkıda bulunulabilir.
+
+2.2. Kullanım Alanı ve Önem
+	•	Sunucular: Kararlı ve güvenli yapısıyla veri merkezlerinde, bulut platformlarında sıklıkla kullanılır.
+	•	Masaüstü: Ubuntu, Linux Mint gibi dağıtımlar, kullanıcı dostu masaüstü arayüzleri sunar.
+	•	Gömülü Sistemler: Android dahil pek çok cihaz (akıllı TV, router, otomobillerdeki sistemler) Linux çekirdeği kullanır.
+
+2.3. Diğer İşletim Sistemleriyle Kıyaslama
+	•	Linux vs. Windows:
+	•	Windows kapalı kaynak kodludur, lisans ücreti gerekebilir. Linux dağıtımları ise genelde ücretsiz ve açık kaynaktır.
+	•	Linux’ta güvenlik ve özelleştirme seviyesi yüksektir; Windows masaüstünde uzun yıllardır yaygın bir kullanım kolaylığı sunar.
+	•	Linux vs. macOS:
+	•	macOS, Apple’ın kendi donanımına özeldir; kapalı bir ekosisteme sahiptir.
+	•	Linux, hemen her çeşit donanımda çalışabilir, özelleştirme özgürlüğü çok yüksektir.
+
+2.4. Dağıtımlar (Distributions)
+	•	Ubuntu, Linux Mint, Fedora, Debian, Arch Linux gibi onlarca popüler dağıtım vardır.
+	•	Her biri paket yönetimi, güncelleme yaklaşımı, masaüstü ortamı gibi açılardan farklılaşır.
+
+
+3. SSH Protokolü
+
+SSH (Secure Shell), iki bilgisayar arasında şifrelenmiş bir bağlantı kurmaya yarayan bir protokoldür.
+
+  1.	Uzaktan Kontrol
+	•	Fiziksel olarak başında olmadan, uzaktaki bir bilgisayara komut satırı erişimi sağlar.
+	
+  2.	Güvenlik
+	•	Kullanıcı adı ve parolayı şifreleyerek gönderir. Tüm veri trafiği şifreli olduğu için dinlenmesi zordur.
+
+  3.	Kimlik Doğrulama
+	•	Parola Tabanlı: Basit, ancak parola koruma zorunludur.
+	•	Anahtar Tabanlı: İki anahtar (özel/genel) mantığıyla çalışır, genelde daha güvenli ve pratiktir.
+
+  4.	Dosya Transferi
+	•	SCP ve SFTP protokolleriyle güvenli dosya alışverişi yapılabilir.
+	•	Port yönlendirme (tünelleme) özelliğiyle de farklı protokolleri SSH üzerinden geçirebilirsiniz.
+
+
+4. VNC (VNS) Viewer
+
+VNC (Virtual Network Computing), başka bir bilgisayarın masaüstünü uzaktan görüntüleme ve yönetme protokolüdür.
+	•	VNC Server: Uzaktaki bilgisayarda çalışır, bağlantıları dinler.
+	•	VNC Viewer: Yerel bilgisayarınızda çalışıp sunucuya bağlanır.
+	•	Kullanım Alanları: Uzaktan teknik destek, sunucu ya da ofis bilgisayarlarını masaüstü seviyesinde yönetme, eğitim/demolar.
+	•	Güvenlik: Geleneksel VNC şifreleme zayıf olabilir; şifreli varyantlar veya SSH tüneli kullanmak daha güvenlidir.
+
+
+5. Linux Temel Komutları
+
+Aşağıda en çok kullanılan komutları ve özet işlevlerini bulabilirsiniz:
+	
+  1.	ls: Dosya/klasörleri listeleme
+	•	ls, ls -l, ls -a
+	•	Bulunduğunuz dizindeki içerikleri gösterir.
+	
+  2.	cd: Dizin değiştirme
+	•	cd /home/kullanici, cd ..
+	•	Hedef dizine geçmenizi veya üst dizine çıkmanızı sağlar.
+
+  3.	cp: Kopyalama
+	•	cp dosya1.txt dosya2.txt
+	•	cp -r Klasor Klasor_yedek (alt dizinlerle birlikte kopyalama).
+
+  4.	mv: Taşıma ya da yeniden adlandırma
+	•	mv dosya.txt yeni_ad.txt
+	•	mv dosya.txt /home/kullanici/dizin/.
+	
+  5.	rm: Silme
+	•	rm dosya.txt
+	•	rm -r Klasor (klasörün içindekilerle birlikte siler).
+	•	rm -rf Klasor (zorla silme; çok dikkatli kullanılmalı).
+
+  6.	mkdir: Dizin oluşturma
+	•	mkdir YeniKlasor
+	•	mkdir -p /home/kullanici/Proje/AltProje (ebeveynleri de oluşturur).
+
+  7.	rmdir: Boş dizin silme
+	•	rmdir BosKlasor (içi doluysa işe yaramaz, hata verir).
+
+  8.	touch: Dosya oluşturma veya zaman damgasını güncelleme
+	•	touch yeni.txt (yoksa oluşturur, varsa son değiştirme tarihini günceller).
+
+  9.	find: Dosya/dizin arama
+	•	find /home -name "*.txt"
+	•	find . -type f -size +1M.
+	
+  10.	grep: Metin arama
+	•	grep "aranan" dosya.txt
+	•	grep -r "kelime" . (alt dizinlerde de arar).
+	
+  11.	cat: Dosya içeriğini ekrana yazma
+	•	cat dosya.txt.
+
+  12.	less / more: Dosya içeriğini sayfa sayfa inceleme
+	•	less dosya.txt, more dosya.txt.
+
+
+6. Dosya ve Dizin İzinleri - chmod, chown, Linkler
+
+6.1. Dosya İzinleri (chmod)
+
+Her dosya/dizinin üç tür yetkisi vardır:
+	•	r (read) = okuma,
+	•	w (write) = yazma,
+	•	x (execute) = çalıştırma.
+
+Ve her dosya/dizin şu üç kategoriye göre izinle yönetilir:
+	•	owner (u) = sahibi,
+	•	group (g) = grup,
+	•	others (o) = diğer kullanıcılar.
+
+Numerik (Octal) Yöntem
+	•	r = 4, w = 2, x = 1.
+	•	Örnek: chmod 755 dosya.txt → sahip (7 = rwx), grup (5 = r-x), diğer (5 = r-x).
+
+Sembolik Yöntem
+	•	chmod u+x dosya.sh → sahibine çalıştırma izni ekle.
+	•	chmod g-r dosya.sh → grup için okuma iznini kaldır.
+	•	chmod o=rx dosya.sh → diğerlerine okuma ve çalıştırma izni ver.
+
+6.2. Sahiplik - chown, chgrp
+	•	chown kullanıcı[:grup] dosya: Dosyanın sahibi ve/veya grubunu değiştirir.
+	•	chgrp grup dosya: Yalnızca grubu değiştirir.
+	•	Örnek: sudo chown ali:developers proje.c
+
+6.3. Linkler (Hard Link ve Symbolic Link)
+	1.	Hard Link
+	•	Aynı inode’u paylaşır, aynı dosya sistemi içinde geçerlidir. “Orijinal” dosya silinse bile başka bir hard link varsa veri kaybolmaz.
+	•	ln orijinal.txt link_dosya.txt
+	2.	Symbolic (Soft) Link
+	•	Kısayol gibi davranır; hedefin yolunu tutar.
+	•	Hedef silinirse link kırık hale gelir. Farklı disk bölümlerinde de kullanılabilir.
+	•	ln -s orijinal.txt symlink.txt
+
+
+7. Metin Editörleri: nano, vim, gedit
+
+7.1. nano
+	•	Terminal tabanlı, kullanımı en kolay metin editörlerinden biri.
+	•	Alt kısımda CTRL kısayolları (^X, ^O vb.) gösterilir.
+	•	Dosyayı açma: nano dosya.txt → düzenleyin → CTRL+O (kaydet), CTRL+X (çık).
+
+7.2. vim
+	•	Terminal tabanlı, çok güçlü bir editör. Modlu çalışma mantığı vardır:
+	•	Komut Modu: Hareket, silme, kopyalama gibi işlevler. (Vim açılınca başlangıçta bu modda olur.)
+	•	Ekleme Modu: Yazı yazmak/düzenlemek için i tuşuna basılır.
+	•	Kaydetme/çıkma: ESC ile komut moduna dön → :wq (kaydet ve çık) veya :q! (kaydetmeden çık).
+
+7.3. gedit
+	•	GNOME masaüstü ortamının varsayılan grafik editörü.
+	•	Sekme, kod vurgulama, kullanımı basit bir arayüz sağlar.
+	•	gedit dosya.txt & → arka planda GUI penceresi açılır.
+
+
+8. Sıkıştırma ve Arşivleme
+
+Linux’te en yaygın araçlar tar, gzip, bzip2 ve zip’tir.
+
+8.1. tar
+	•	Dosya/dizinleri arşivler; sıkıştırma yapmaz (tek başına .tar dosyası oluşturur).
+	•	-c (create), -x (extract), -f (dosya adı), -v (verbose).
+	•	-z (gzip), -j (bzip2) ile entegre kullanılır.
+
+Örnekler
+	•	tar -czvf yedek.tar.gz /path/to/dizin → GZIP ile sıkıştırılmış .tar.gz.
+	•	tar -xzvf yedek.tar.gz → Arşivi açma.
+	•	tar -cjvf yedek.tar.bz2 /path/to/dizin → BZIP2 ile sıkıştırma.
+
+8.2. gzip ve bzip2
+	•	gzip: Tek dosyayı .gz uzantısıyla sıkıştırır. gzip dosya.txt → dosya.txt.gz.
+	•	bzip2: Tek dosyayı .bz2 uzantısıyla sıkıştırır, genelde daha iyi oran (ama biraz daha yavaş).
+	•	Geri açmak için gzip -d dosya.txt.gz veya bunzip2 dosya.txt.bz2.
+
+8.3. zip
+	•	Hem arşiv hem sıkıştırma yapar; .zip uzantısı oluşturur.
+	•	zip arşiv.zip dosya1.txt dosya2.txt → dosya1 ve dosya2’yi arşiv.zip’e koyar.
+	•	zip -r arşiv.zip klasor → klasörü tüm alt dizinleriyle birlikte .zipler.
+	•	Açmak için unzip arşiv.zip.
+
+
+9. Temel Ağ Komutları
+
+9.1. ping
+	•	Hedef makinaya ICMP paketleri göndererek ulaşılabilirliğini ve gecikmeyi ölçer.
+	•	ping google.com → sonsuz döngüde yanıtları gösterir, CTRL+C ile durdur.
+	•	ping -c 4 8.8.8.8 → 4 paket gönderip durur.
+
+9.2. curl
+	•	Bir URL’ye HTTP(S), FTP vb. protokoller üzerinden istek gönderir, yanıtı gösterir.
+	•	curl https://www.example.com → sayfanın HTML içeriğini döker.
+	•	curl -O https://example.com/dosya.zip → Dosyayı aynı isimle kaydeder.
+	•	curl -I https://www.google.com → Sadece başlık bilgilerini gösterir.
+
+9.3. wget
+	•	Genellikle dosya indirmek için kullanılır.
+	•	wget https://example.com/dosya.zip → dosya.zip’i indirir.
+	•	wget -c → indirme yarıda kaldığında devam eder.
+	•	wget -r https://example.com/ → sitedeki linkleri takip ederek (rekürsif) indirir (dikkatli kullanılmalı).
+
+9.4. nslookup
+	•	DNS sorgusu yapar. Alan adından IP, IP’den alan adı çözümlemesi yapar.
+	•	nslookup google.com → google.com’un IP adreslerini listeler.
+	•	nslookup 8.8.8.8 → ters DNS sorgusu (IP → alan adı).
+
+9.5. dig
+	•	DNS bilgilerini daha detaylı görmenizi sağlar.
+	•	dig google.com → A kayıtlarını gösterir.
+	•	dig MX gmail.com → gmail.com’un mail sunucuları.
+	•	dig NS google.com → nameserver kayıtları.
+	•	dig @8.8.8.8 google.com → Google DNS kullanarak sorgu.
+
+9.6. netstat
+	•	Ağ bağlantıları, yönlendirme tabloları, arayüz istatistiklerini gösterir.
+	•	Artık modern dağıtımlarda yerine ss geçebiliyor.
+	•	netstat -tuln → TCP/UDP dinleyen portlar.
+	•	netstat -anp → tüm bağlantılar, işlem bilgileri (root’la daha ayrıntılı).
+
+9.7. ss (socket statistics)
+	•	netstat’ın daha hızlı ve güncel alternatifi.
+	•	ss -tuln → TCP/UDP dinleyen portları gösterir, sayısal formatta.
+	•	ss -tunap → tüm bağlantılar, işlem bilgileri dahil.
