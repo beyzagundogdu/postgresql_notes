@@ -65,7 +65,21 @@ join film_category fc on fa.film_id=fc.film_id
 join category c on fc.category_id=c.category_id
 group by a.actor_id, a.first_name, a.last_name, c.name
 order by film_count desc;
-	   
+
+--- category_id indexinin kullanımını görmek için category_id filtresini uygulamak
+
+--Aktör ve Kategoriye Göre Film Dağılımı
+EXPLAIN (ANALYZE, BUFFERS) 
+SELECT a.actor_id, a.first_name, a.last_name,
+    c.name, COUNT(fa.film_id) AS film_count
+FROM actor a
+JOIN film_actor fa ON a.actor_id = fa.actor_id
+JOIN film_category fc ON fa.film_id = fc.film_id
+JOIN category c ON fc.category_id = c.category_id
+WHERE fc.category_id IN (1, 2, 3, 4, 5)
+GROUP BY a.actor_id, a.first_name, a.last_name, c.name
+ORDER BY film_count DESC;
+
 
 --Her Müşterinin Son Kiraladığı Film
 select c.customer_id, c.first_name, c.last_name,
